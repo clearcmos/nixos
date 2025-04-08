@@ -1,4 +1,3 @@
-result
 .env
-.env.gpg
-.claude.json
+CLAUDE.md
+result
