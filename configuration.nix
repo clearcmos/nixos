@@ -40,10 +40,11 @@ in
   imports = [
     ./containers/glances.nix
     ./containers/scrutiny.nix
-    ./claude.nix
-    ./git.nix
+    ./stacks/claude.nix
+    ./stacks/git.nix
+    ./stacks/nginx.nix
+    ./aliases.nix
     ./hardware-configuration.nix
-    ./nginx.nix
   ];
   
   # Share username with other modules
@@ -125,6 +126,7 @@ in
   environment.systemPackages = with pkgs; [
     cacert
     cifs-utils
+    compose2nix
     curl
     fzf
     git
