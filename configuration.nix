@@ -40,9 +40,9 @@ in
   imports = [
     ./containers/glances.nix
     ./containers/scrutiny.nix
-    ./stacks/claude.nix
-    ./stacks/git.nix
-    ./stacks/nginx.nix
+    ./modules/claude.nix
+    ./modules/git.nix
+    ./modules/nginx.nix
     ./aliases.nix
     ./hardware-configuration.nix
   ];
