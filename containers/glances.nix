@@ -1,7 +1,26 @@
-# Auto-generated using compose2nix v0.3.2-pre.
 { pkgs, lib, config, ... }:
-
 {
+  # Auto-created image pull service
+  systemd.services."pull-glances-glances-latest-full-image" = {
+    description = "Pull latest glances:latest-full image for glances";
+    path = [ pkgs.podman ];
+    script = ''
+      podman pull nicolargo/glances:latest-full
+    '';
+    serviceConfig = {
+      Type = "oneshot";
+    };
+    wantedBy = [ "multi-user.target" ];
+  };
+
+
+  # Auto-created activation script to pull container images on rebuild
+  system.activationScripts.pullglancesContainers = ''
+    /run/current-system/sw/bin/echo "Pulling latest image for glances/glances..."
+    ${pkgs.podman}/bin/podman pull nicolargo/glances:latest-full || true
+    /run/current-system/sw/bin/echo "Done pulling for glances/glances."
+    
+  '';
   # Runtime
   virtualisation.podman = {
     enable = true;

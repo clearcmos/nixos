@@ -1,13 +1,8 @@
 { pkgs, lib, config, ... }:
 {
-  # Auto-created directory rules
-  systemd.tmpfiles.rules = [
-    "d /var/lib/containers/storage/volumes/scrutiny/config 0755 root root - -"
-    "d /var/lib/containers/storage/volumes/scrutiny/influxdb 0755 root root - -"
-  ];
   # Auto-created image pull service
-  systemd.services."pull-scrutiny-master-omnibus-image" = {
-    description = "Pull latest scrutiny:master-omnibus image";
+  systemd.services."pull-scrutiny-scrutiny-master-omnibus-image" = {
+    description = "Pull latest scrutiny:master-omnibus image for scrutiny";
     path = [ pkgs.podman ];
     script = ''
       podman pull ghcr.io/analogj/scrutiny:master-omnibus
@@ -20,15 +15,12 @@
 
 
   # Auto-created activation script to pull container images on rebuild
-  system.activationScripts."pullContainers-scrutiny" = {
-    text = ''
-      echo "Pulling latest image for scrutiny..."
-      ${pkgs.podman}/bin/podman pull ghcr.io/analogj/scrutiny:master-omnibus || true
-      echo "Done pulling for scrutiny."
-      
-    '';
-    deps = [ "specialfs" ];
-  };
+  system.activationScripts.pullscrutinyContainers = ''
+    /run/current-system/sw/bin/echo "Pulling latest image for scrutiny/scrutiny..."
+    ${pkgs.podman}/bin/podman pull ghcr.io/analogj/scrutiny:master-omnibus || true
+    /run/current-system/sw/bin/echo "Done pulling for scrutiny/scrutiny."
+    
+  '';
   # Runtime
   virtualisation.podman = {
     enable = true;
