@@ -2,6 +2,8 @@
 { config, lib, pkgs, ... }:
 
 {
+  # Enable flakes and nix-command
+  nix.settings.experimental-features = [ "nix-command" "flakes" ];
   imports = [
     ../../containers/glances.nix
     ../../containers/scrutiny.nix
