@@ -7,6 +7,7 @@
     ./network.nix
     ./services.nix
     ./aliases.nix
+    ./functions.nix
   ];
 
   # Common packages for all hosts
