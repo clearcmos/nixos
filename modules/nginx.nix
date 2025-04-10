@@ -66,7 +66,6 @@ in {
       wget
       nginx # Added nginx so the command is available in PATH
       certbot # Added certbot so it's available in PATH
-      certbot.plugins.nginx # Added nginx plugin for certbot (corrected reference)
     ];
 
     # Configure and enable nginx
@@ -86,9 +85,9 @@ in {
       
       # Custom nginx configuration that exactly matches the Debian setup
       config = ''
-        # NixOS sets user automatically, equivalent to Debian's "user www-data;"
+        # NixOS sets user automatically, so we don't need "user www-data;" here
         worker_processes auto;
-        pid /run/nginx.pid;
+        # NixOS sets pid file location, so we don't need "pid /run/nginx.pid;" here
         error_log /var/log/nginx/error.log;
         
         events {

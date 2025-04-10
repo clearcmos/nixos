@@ -37,7 +37,6 @@
     podman
     samba
     certbot
-    certbot.plugins.nginx  # Corrected reference for the nginx plugin
     # Add other misc-specific packages here
   ];
 
@@ -71,7 +70,8 @@
   };
   
   # Example virtual host with ACME/certbot integration
-  # Replace "example.com" with your actual domain when ready to use
+  # Commented out until you have a real domain to use
+  /*
   services.nginx.virtualHosts."example.com" = {
     enableACME = true;
     forceSSL = true;
@@ -99,16 +99,18 @@
     certs = {
       "example.com" = {
         extraDomainNames = [ "www.example.com" ];
+        # Use your email address from .env directly
+        email = "nicbedros@gmail.com"; # Using the email from your .env
         # No need to specify webroot or credentials - NixOS handles this
         postRun = "systemctl reload nginx.service";
       };
     };
   };
+  */
   
-  # Make sure the webroot directory exists
+  # Make sure the webroot directory exists (this is still useful for future use)
   system.activationScripts.nginxWebroot = ''
-    mkdir -p /var/www/example.com
-    echo "<html><body><h1>It works!</h1></body></html>" > /var/www/example.com/index.html
-    chmod -R 755 /var/www/example.com
+    mkdir -p /var/www
+    chmod -R 755 /var/www
   '';
 }
