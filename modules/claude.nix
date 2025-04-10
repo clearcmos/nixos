@@ -91,14 +91,15 @@ let
     USERNAME="${username}"
     USER_HOME="/home/$USERNAME"
     CLAUDE_DIR="$USER_HOME/.claude"
+    SOURCE_CONFIG="/etc/nixos/private/.claude.json"
 
-    if [ -d "$USER_HOME" ]; then
+    if [ -d "$USER_HOME" ] && [ -f "$SOURCE_CONFIG" ]; then
       # Create .claude directory if it doesn't exist
       mkdir -p "$CLAUDE_DIR"
 
-      # Write configuration directly to both locations
-      echo '${claudeConfigContent}' > "$USER_HOME/.claude.json"
-      echo '${claudeConfigContent}' > "$CLAUDE_DIR/config.json"
+      # Copy configuration from source file to both locations
+      cp "$SOURCE_CONFIG" "$USER_HOME/.claude.json"
+      cp "$SOURCE_CONFIG" "$CLAUDE_DIR/config.json"
 
       # Set proper ownership and permissions
       chown $USERNAME:users "$USER_HOME/.claude.json"
@@ -107,9 +108,13 @@ let
       chmod 700 "$CLAUDE_DIR"
       chmod 600 "$CLAUDE_DIR/config.json"
 
-      echo "Created Claude configuration in $USER_HOME/.claude.json and $CLAUDE_DIR/config.json"
+      echo "Copied Claude configuration from $SOURCE_CONFIG to $USER_HOME/.claude.json and $CLAUDE_DIR/config.json"
     else
-      echo "User home directory $USER_HOME does not exist yet"
+      if [ ! -f "$SOURCE_CONFIG" ]; then
+        echo "Source config file $SOURCE_CONFIG does not exist"
+      else
+        echo "User home directory $USER_HOME does not exist yet"
+      fi
     fi
   '';
 in
@@ -189,9 +194,14 @@ in
     script = ''
       # Ensure the config exists in root's home directory
       mkdir -p /root
-      echo '${claudeConfigContent}' > /root/.claude.json
-      chown root:root /root/.claude.json
-      chmod 600 /root/.claude.json
+      SOURCE_CONFIG="/etc/nixos/private/.claude.json"
+      if [ -f "$SOURCE_CONFIG" ]; then
+        cp "$SOURCE_CONFIG" /root/.claude.json
+        chown root:root /root/.claude.json
+        chmod 600 /root/.claude.json
+      else
+        echo "Source config file $SOURCE_CONFIG does not exist"
+      fi
 
       # Run the script to copy to user's home
       copy-claude-config
@@ -220,23 +230,35 @@ in
   system.activationScripts.copyClaudeConfig = lib.stringAfter [ "users" "groups" ] ''
     echo "Setting up Claude configuration files..."
     USER_HOME="/home/${username}"
-    if [ -d "$USER_HOME" ]; then
-      # Write directly to user's locations
-      echo '${claudeConfigContent}' > "$USER_HOME/.claude.json"
+    SOURCE_CONFIG="/etc/nixos/private/.claude.json"
+    
+    if [ -d "$USER_HOME" ] && [ -f "$SOURCE_CONFIG" ]; then
+      # Copy to user's locations
+      cp "$SOURCE_CONFIG" "$USER_HOME/.claude.json"
       chown ${username}:users "$USER_HOME/.claude.json"
       chmod 600 "$USER_HOME/.claude.json"
       
-      # Also write to the .claude directory
+      # Also copy to the .claude directory
       CLAUDE_DIR="$USER_HOME/.claude"
       mkdir -p "$CLAUDE_DIR"
-      echo '${claudeConfigContent}' > "$CLAUDE_DIR/config.json"
+      cp "$SOURCE_CONFIG" "$CLAUDE_DIR/config.json"
       chown -R ${username}:users "$CLAUDE_DIR"
       chmod 700 "$CLAUDE_DIR"
       chmod 600 "$CLAUDE_DIR/config.json"
       
-      echo "Created Claude configuration in $USER_HOME/.claude.json and $CLAUDE_DIR/config.json"
+      # Copy to root's home as well
+      mkdir -p /root
+      cp "$SOURCE_CONFIG" /root/.claude.json
+      chown root:root /root/.claude.json
+      chmod 600 /root/.claude.json
+      
+      echo "Copied Claude configuration from $SOURCE_CONFIG to user and root directories"
     else
-      echo "User home directory not found at $USER_HOME"
+      if [ ! -f "$SOURCE_CONFIG" ]; then
+        echo "Source config file $SOURCE_CONFIG does not exist"
+      else
+        echo "User home directory not found at $USER_HOME"
+      fi
     fi
   '';
 }

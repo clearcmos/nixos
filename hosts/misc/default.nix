@@ -11,6 +11,7 @@
     ../../common
     ../../modules/users.nix
     ../../modules/git.nix
+    ../../modules/cifs-mounts.nix
     # Import container configurations if needed
     # Add or remove container imports based on needs for this host
   ];

@@ -21,6 +21,10 @@
           modules = [
             # Host-specific configuration
             ./hosts/${hostname}
+            # Explicitly include the modules directory
+            {
+              imports = [ ./modules ];
+            }
           ] ++ modules;
         };
     in {
