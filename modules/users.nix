@@ -34,7 +34,7 @@ let
   githubUsername = getEnv "GITHUB_USER" "nixuser";
   emailAddress = getEnv "GITHUB_EMAIL" "";
   sshKey = getEnv "SSH_AUTHORIZED_KEY" "";
-  hashedPassword = getEnv "USER_SYSTEM_PASSWORD" "";
+  hashedPassword = getEnv "SYSTEM_PASSWORD" "";
 
 in {
   # Define options for mainUser

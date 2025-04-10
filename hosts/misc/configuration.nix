@@ -1,41 +1,6 @@
 # Host-specific configuration for misc
 { config, lib, pkgs, ... }:
 
-let
-  # Helper function to load environment variables from .env file
-  loadEnvFile = file:
-    let
-      content = builtins.readFile file;
-      # Handle empty content case
-      lines = if content == "" then [] else 
-              builtins.filter (l: l != "" && builtins.substring 0 1 l != "#")
-                             (lib.splitString "\n" content);
-      parseLine = l:
-        let
-          parts = lib.splitString "=" l;
-          key = builtins.head parts;
-          value = builtins.concatStringsSep "=" (builtins.tail parts);
-        in { name = key; value = value; };
-      envVars = builtins.listToAttrs (map parseLine lines);
-    in envVars;
-
-  # Attempt to load the .env file, or use empty set if it doesn't exist
-  envFile = "/etc/nixos/hosts/misc/.env";
-  envExists = builtins.pathExists envFile;
-  env = if envExists then loadEnvFile envFile else {};
-
-  # Function to get a value from the env file with a default
-  getEnv = name: default: if builtins.hasAttr name env
-                         then env.${name}
-                         else default;
-                         
-  # Get network configuration from environment variables
-  hostIP = getEnv "HOST_IP" "192.168.1.3";
-  hostName = getEnv "HOST_NAME" "misc";
-  gatewayIP = getEnv "GATEWAY_IP" "192.168.1.1";
-  dnsServers = lib.splitString " " (getEnv "DNS_SERVERS" "192.168.1.1");
-  containerDataDir = getEnv "CONTAINER_DATA_DIR" "/var/lib/containers";
-in
 {
   # Enable flakes and nix-command
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
@@ -46,20 +11,21 @@ in
     ../../modules/nginx.nix
   ];
   
-  # Host-specific networking configuration
+  # Host-specific networking configuration with hardcoded values
   networking = {
-    hostName = hostName;
+    # Hardcoded hostname as requested
+    hostName = "misc";
     domain = "home.arpa";
     
-    # Network configuration using environment variables
+    # Hardcoded network configuration
     interfaces.enp3s0f0 = {
       useDHCP = false;
       ipv4.addresses = [
-        { address = hostIP; prefixLength = 24; }
+        { address = "192.168.1.3"; prefixLength = 24; }
       ];
     };
-    defaultGateway = gatewayIP;
-    nameservers = dnsServers;
+    defaultGateway = "192.168.1.1";
+    nameservers = [ "192.168.1.1" ];
 
     firewall.enable = false;
   };
@@ -79,12 +45,9 @@ in
     keyMap = "us";
   };
 
-  # Make environment variables available to other modules if needed
+  # Environment variables that could be referenced by other modules
   environment.variables = {
-    HOST_IP = hostIP;
-    HOST_NAME = hostName;
-    GATEWAY_IP = gatewayIP;
-    CONTAINER_DATA_DIR = containerDataDir;
+    CONTAINER_DATA_DIR = "/var/lib/containers";
   };
 
   # Example usage of environment variables in a systemd service
@@ -92,14 +55,15 @@ in
     description = "Example service using environment variables";
     enable = false; # Set to true when you actually need this service
     serviceConfig = {
-      # Use EnvironmentFile to load all variables
+      # Use EnvironmentFile to load all variables from root .env
       EnvironmentFile = [
-        "/etc/nixos/hosts/misc/.env"
+        "/etc/nixos/.env"
       ];
       # Or inject specific variables directly
       Environment = [
-        "HOST_IP=${hostIP}"
-        "CONTAINER_DATA_DIR=${containerDataDir}"
+        "HOST_NAME=misc"
+        "HOST_IP=192.168.1.3"
+        "CONTAINER_DATA_DIR=/var/lib/containers"
       ];
     };
   };
