@@ -66,7 +66,7 @@ in {
       wget
       nginx # Added nginx so the command is available in PATH
       certbot # Added certbot so it's available in PATH
-      certbot-nginx # Added nginx plugin for certbot
+      certbot.plugins.nginx # Added nginx plugin for certbot (corrected reference)
     ];
 
     # Configure and enable nginx

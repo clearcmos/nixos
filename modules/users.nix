@@ -30,7 +30,7 @@ let
                          else default;
                          
   # Get username and other environment variables
-  username = getEnv "USERNAME" "nixuser";
+  username = getEnv "SYSTEM_USERNAME" "nixuser";
   githubUsername = getEnv "GITHUB_USER" "nixuser";
   emailAddress = getEnv "GITHUB_EMAIL" "";
   sshKey = getEnv "SSH_AUTHORIZED_KEY" "";

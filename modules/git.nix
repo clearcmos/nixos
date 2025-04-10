@@ -29,7 +29,7 @@ let
                          else default;
   
   githubUsername = getEnv "GITHUB_USER" "nixuser";
-  systemUsername = getEnv "USERNAME" "nixuser";
+  systemUsername = getEnv "SYSTEM_USERNAME" "nixuser";
   emailAddress = getEnv "GITHUB_EMAIL" "";
 in {
   systemd.services.git-setup = {

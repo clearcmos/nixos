@@ -37,7 +37,7 @@
     podman
     samba
     certbot
-    certbot-nginx
+    certbot.plugins.nginx  # Corrected reference for the nginx plugin
     # Add other misc-specific packages here
   ];
 
