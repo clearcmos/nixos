@@ -1,3 +1,6 @@
-.env
-CLAUDE.md
-result
+# Ignore these files anywhere in the repository
+**/.claude.json
+**/.env
+**/CLAUDE.md
+**/result
+**/total.log

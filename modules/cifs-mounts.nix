@@ -42,7 +42,7 @@ let
   cifsHost2Share1 = getEnv "CIFS_HOST_2_SHARE_1" "syno";
   cifsHost2Share2 = getEnv "CIFS_HOST_2_SHARE_2" "syno-backups";
 
-  # Get CIFS credentials
+  # Get CIFS credentials from the .env file
   cifsHost1User = getEnv "CIFS_HOST_1_USER" "bedro";
   cifsHost1Pass = getEnv "CIFS_HOST_1_PASS" "";
   cifsHost2User = getEnv "CIFS_HOST_2_USER" "nicholas";
@@ -90,6 +90,19 @@ in {
       chmod 600 /etc/.msi
       echo "${host2CredentialsContent}" > /etc/.syno
       chmod 600 /etc/.syno
+      
+      # Debug: echo credential information to journalctl for troubleshooting
+      echo "CIFS credential files created:"
+      echo "Host 1 (MSI) username: ${cifsHost1User}"
+      echo "Host 1 (MSI) password value: ${cifsHost1Pass}"
+      echo "Host 2 (Synology) username: ${cifsHost2User}" 
+      echo "Host 2 (Synology) password value: ${cifsHost2Pass}"
+      
+      # Show actual credential file contents
+      echo "MSI credentials file content:"
+      cat /etc/.msi
+      echo "Synology credentials file content:"
+      cat /etc/.syno
     '';
 
     # Create mount points if enabled
@@ -145,6 +158,8 @@ in {
           "x-gvfs-show"
           "uid=${username}"
           "gid=users"
+          "vers=3.0"
+          "sec=ntlmssp"
         ];
       };
       
@@ -156,6 +171,8 @@ in {
           "x-gvfs-show"
           "uid=${username}"
           "gid=users"
+          "vers=3.0"
+          "sec=ntlmssp"
         ];
       };
     };
