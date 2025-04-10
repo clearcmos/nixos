@@ -52,6 +52,9 @@ let
     "GeoLite2-Country"
   ];
 
+  # Get default email for Let's Encrypt
+  certbotEmail = getEnv "EMAIL_ADDRESS" "";
+
 in {
   # Ensure this module is only activated when credentials are provided
   config = {
@@ -61,6 +64,9 @@ in {
       geoipupdate
       jq
       wget
+      nginx # Added nginx so the command is available in PATH
+      certbot # Added certbot so it's available in PATH
+      certbot-nginx # Added nginx plugin for certbot
     ];
 
     # Configure and enable nginx
@@ -78,10 +84,11 @@ in {
         modules = [ pkgs.nginxModules.geoip2 ];
       };
       
-      # Custom nginx configuration
+      # Custom nginx configuration that exactly matches the Debian setup
       config = ''
-        # NixOS already sets user and pid directives
+        # NixOS sets user automatically, equivalent to Debian's "user www-data;"
         worker_processes auto;
+        pid /run/nginx.pid;
         error_log /var/log/nginx/error.log;
         
         events {
@@ -97,7 +104,7 @@ in {
             include ${pkgs.nginx}/conf/mime.types;
             default_type application/octet-stream;
             
-            ssl_protocols TLSv1 TLSv1.1 TLSv1.2 TLSv1.3;
+            ssl_protocols TLSv1.2 TLSv1.3;
             ssl_prefer_server_ciphers on;
             
             log_format geoip_log '$remote_addr - $remote_user [$time_local] '
@@ -109,7 +116,7 @@ in {
             
             gzip on;
             
-            # Ensure correct path to GeoIP database
+            # Path to GeoIP database (different from Debian, uses NixOS location)
             geoip2 /var/lib/GeoIP/GeoLite2-Country.mmdb {
                 $geoip2_data_country_code country iso_code;
             }
@@ -137,6 +144,52 @@ ${whitelistFormatted}
         }
       '';
     };
+
+    # Configure the certbot service
+    security.acme = {
+      acceptTerms = true;
+      defaults.email = certbotEmail;
+
+      certs = {};  # Specific certificates will be defined here or in host configs
+    };
+
+    # Create shared SSL parameters for nginx
+    system.activationScripts.setupNginxSslParams = ''
+      mkdir -p /etc/nginx/ssl
+      if [ ! -f /etc/nginx/ssl/options-ssl-nginx.conf ]; then
+        cat > /etc/nginx/ssl/options-ssl-nginx.conf << 'EOL'
+# This file contains important security parameters. If you modify this file
+# manually, Certbot will be unable to automatically provide future security
+# updates. Instead, Certbot will preserve this file as is and mark it as managed.
+# See options-ssl-nginx.conf.dpkg-dist for a more verbose version of this file.
+
+ssl_session_cache shared:le_nginx_SSL:10m;
+ssl_session_timeout 1440m;
+ssl_session_tickets off;
+
+ssl_protocols TLSv1.2 TLSv1.3;
+ssl_prefer_server_ciphers on;
+ssl_ciphers "EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH";
+ssl_ecdh_curve secp384r1;
+
+ssl_stapling on;
+ssl_stapling_verify on;
+
+add_header Strict-Transport-Security "max-age=15768000; includeSubDomains; preload";
+add_header X-Frame-Options DENY;
+add_header X-Content-Type-Options nosniff;
+add_header X-XSS-Protection "1; mode=block";
+EOL
+        chmod 644 /etc/nginx/ssl/options-ssl-nginx.conf
+      fi
+
+      # Create DH parameters (this might take some time on first run)
+      if [ ! -f /etc/nginx/ssl/ssl-dhparams.pem ]; then
+        echo "Generating DH parameters, this might take a while..."
+        ${pkgs.openssl}/bin/openssl dhparam -out /etc/nginx/ssl/ssl-dhparams.pem 2048
+        chmod 644 /etc/nginx/ssl/ssl-dhparams.pem
+      fi
+    '';
     
     # Setup MaxMind license key file securely during activation
     system.activationScripts.setupMaxMindKey = lib.mkIf (maxmindAccountId != "" && maxmindLicenseKey != "") ''
@@ -158,7 +211,7 @@ ${whitelistFormatted}
       };
     };
     
-    # Create necessary directories
+    # Create necessary directories for nginx
     system.activationScripts.nginxDirs = ''
       mkdir -p /etc/nginx/conf.d
       mkdir -p /etc/nginx/sites-enabled

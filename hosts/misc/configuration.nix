@@ -36,6 +36,8 @@
     compose2nix
     podman
     samba
+    certbot
+    certbot-nginx
     # Add other misc-specific packages here
   ];
 
@@ -67,4 +69,46 @@
       ];
     };
   };
+  
+  # Example virtual host with ACME/certbot integration
+  # Replace "example.com" with your actual domain when ready to use
+  services.nginx.virtualHosts."example.com" = {
+    enableACME = true;
+    forceSSL = true;
+    
+    # Basic site configuration
+    root = "/var/www/example.com";
+    locations = {
+      "/" = {
+        index = "index.html index.htm";
+        tryFiles = "$uri $uri/ =404";
+      };
+    };
+    
+    # Include the shared SSL parameters created in the activation script
+    extraConfig = ''
+      include /etc/nginx/ssl/options-ssl-nginx.conf;
+      ssl_dhparam /etc/nginx/ssl/ssl-dhparams.pem;
+    '';
+  };
+  
+  # Configure ACME/certbot for this host
+  security.acme = {
+    # Default configuration is in modules/nginx.nix
+    # Add specific certificates here
+    certs = {
+      "example.com" = {
+        extraDomainNames = [ "www.example.com" ];
+        # No need to specify webroot or credentials - NixOS handles this
+        postRun = "systemctl reload nginx.service";
+      };
+    };
+  };
+  
+  # Make sure the webroot directory exists
+  system.activationScripts.nginxWebroot = ''
+    mkdir -p /var/www/example.com
+    echo "<html><body><h1>It works!</h1></body></html>" > /var/www/example.com/index.html
+    chmod -R 755 /var/www/example.com
+  '';
 }
