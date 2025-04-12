@@ -1,5 +1,10 @@
 { pkgs, lib, config, ... }:
 {
+  # Auto-created directory rules
+  systemd.tmpfiles.rules = [
+    "d /var/lib/containers/storage/volumes/scrutiny/config 0755 root root - -"
+    "d /var/lib/containers/storage/volumes/scrutiny/influxdb 0755 root root - -"
+  ];
   # Auto-created image pull service
   systemd.services."pull-scrutiny-scrutiny-master-omnibus-image" = {
     description = "Pull latest scrutiny:master-omnibus image for scrutiny";

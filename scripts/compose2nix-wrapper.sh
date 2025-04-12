@@ -62,7 +62,8 @@ for COMPOSE_FILE in $($FIND "$SOURCE_DIR" -name "*.yml"); do
   TMPFILES_RULES=""
   
   # Process potentially relative paths in the volumes section
-  $GREP -o '"[^"]*:[^"]*' "$OUTPUT_FILE" | while read -r vol; do
+  # Use process substitution to avoid subshell variable scoping issues
+  while read -r vol; do
     # Remove quotes
     vol=${vol#\"}
     
@@ -114,7 +115,7 @@ for COMPOSE_FILE in $($FIND "$SOURCE_DIR" -name "*.yml"); do
         $ECHO "DEBUG: Redirected non-existent path $host_path to $volume_path"
       fi
     fi
-  done
+  done < <($GREP -o '"[^"]*:[^"]*' "$OUTPUT_FILE")
     
   # Extract container images and build both pull service and activation script blocks.
   if $DEBUG; then

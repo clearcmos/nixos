@@ -1,5 +1,9 @@
 { pkgs, lib, config, ... }:
 {
+  # Auto-created directory rules
+  systemd.tmpfiles.rules = [
+    "d /var/lib/containers/storage/volumes/sonarr/data 0755 root root - -"
+  ];
   # Auto-created image pull service
   systemd.services."pull-sonarr-sonarr-latest-image" = {
     description = "Pull latest sonarr:latest image for sonarr";
