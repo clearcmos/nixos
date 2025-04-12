@@ -46,9 +46,9 @@
       "TZ" = "America/New_York";
     };
     volumes = [
+      "/var/lib/containers/storage/volumes/sonarr/data:/config:rw"
       "/mnt/syno/sonarr/downloads:/downloads:rw"
       "/mnt/syno/sonarr/tv:/tv:rw"
-      "sonarr_data:/config:rw"
     ];
     log-driver = "journald";
     extraOptions = [
@@ -59,32 +59,12 @@
     serviceConfig = {
       Restart = lib.mkOverride 90 "always";
     };
-    after = [
-      "podman-volume-sonarr_data.service"
-    ];
-    requires = [
-      "podman-volume-sonarr_data.service"
-    ];
     partOf = [
       "podman-compose-sonarr-root.target"
     ];
     wantedBy = [
       "podman-compose-sonarr-root.target"
     ];
-  };
-
-  # Volumes
-  systemd.services."podman-volume-sonarr_data" = {
-    path = [ pkgs.podman ];
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-    };
-    script = ''
-      podman volume inspect sonarr_data || podman volume create sonarr_data --driver=local
-    '';
-    partOf = [ "podman-compose-sonarr-root.target" ];
-    wantedBy = [ "podman-compose-sonarr-root.target" ];
   };
 
   # Root service
