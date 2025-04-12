@@ -61,7 +61,7 @@
   };
   systemd.services."podman-sonarr" = {
     serviceConfig = {
-      Restart = lib.mkOverride 90 "always";
+      Restart = lib.mkOverride 90 "no";
     };
     partOf = [
       "podman-compose-sonarr-root.target"

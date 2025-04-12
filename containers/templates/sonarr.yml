@@ -10,5 +10,4 @@ services:
       - ./data:/config
       - /mnt/syno/sonarr/tv:/tv
       - /mnt/syno/sonarr/downloads:/downloads
-    restart: unless-stopped
     network_mode: host
