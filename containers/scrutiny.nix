@@ -65,7 +65,7 @@
       "/run/udev:/run/udev:ro"
     ];
     ports = [
-      "8080:8080/tcp"
+      "8081:8080/tcp"
       "8086:8086/tcp"
     ];
     log-driver = "journald";
