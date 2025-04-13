@@ -86,7 +86,11 @@
   # Containers
   virtualisation.oci-containers.containers."authentik-postgresql" = {
     image = "docker.io/library/postgres:12-alpine";
-    environmentFile = "/var/lib/containers/storage/volumes/authentik/env/.env";
+    environment = {
+      "POSTGRES_DB" = "authentik";
+      "POSTGRES_PASSWORD" = "value-from-env-file";
+      "POSTGRES_USER" = "authentik";
+    };
     volumes = [
       "authentik_database:/var/lib/postgresql/data:rw"
     ];
@@ -122,7 +126,6 @@
   };
   virtualisation.oci-containers.containers."authentik-redis" = {
     image = "docker.io/library/redis:alpine";
-    environmentFile = "/var/lib/containers/storage/volumes/authentik/env/.env";
     volumes = [
       "authentik_redis:/data:rw"
     ];
@@ -159,7 +162,13 @@
   };
   virtualisation.oci-containers.containers."authentik-server" = {
     image = "ghcr.io/goauthentik/server:2024.2.2";
-    environmentFile = "/var/lib/containers/storage/volumes/authentik/env/.env";
+    environment = {
+      "AUTHENTIK_POSTGRESQL__HOST" = "postgresql";
+      "AUTHENTIK_POSTGRESQL__NAME" = "authentik";
+      "AUTHENTIK_POSTGRESQL__PASSWORD" = "value-from-env-file";
+      "AUTHENTIK_POSTGRESQL__USER" = "authentik";
+      "AUTHENTIK_REDIS__HOST" = "redis";
+    };
     volumes = [
       "authentik_media:/media:rw"
       "authentik_templates:/templates:rw"
@@ -201,7 +210,13 @@
   };
   virtualisation.oci-containers.containers."authentik-worker" = {
     image = "ghcr.io/goauthentik/server:2024.2.2";
-    environmentFile = "/var/lib/containers/storage/volumes/authentik/env/.env";
+    environment = {
+      "AUTHENTIK_POSTGRESQL__HOST" = "postgresql";
+      "AUTHENTIK_POSTGRESQL__NAME" = "authentik";
+      "AUTHENTIK_POSTGRESQL__PASSWORD" = "value-from-env-file";
+      "AUTHENTIK_POSTGRESQL__USER" = "authentik";
+      "AUTHENTIK_REDIS__HOST" = "redis";
+    };
     volumes = [
       "/var/run/docker.sock:/var/run/docker.sock:rw"
       "authentik_certs:/certs:rw"

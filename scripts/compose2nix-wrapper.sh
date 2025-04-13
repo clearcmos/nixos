@@ -398,34 +398,12 @@ for COMPOSE_FILE in $($FIND "$SOURCE_DIR" -name "*.yml"); do
   # NixOS doesn't understand this syntax, so we need to replace it
   $SED -i 's/\${\([^}]*\):\?-\([^}]*\)}/\2/g' "$OUTPUT_FILE"
   
-  # If we have env_file references, modify container definitions to use environmentFile
+  # If we have env_file references, don't modify the environment blocks
+  # NixOS oci-containers module doesn't support environmentFile as an option
   if [ "${HAS_ENV_FILE:-false}" = true ]; then
     if $DEBUG; then
-      $ECHO "DEBUG: Modifying container definitions to use environmentFile"
-    fi
-    
-    # Get all containers
-    CONTAINERS=$($GREP -o 'virtualisation.oci-containers.containers."[^"]*"' "$OUTPUT_FILE" | $SED 's/virtualisation.oci-containers.containers."//g' | $SED 's/"//g')
-    
-    # Create a temporary file
-    ENV_TMP=$($MKTEMP)
-    $CP "$OUTPUT_FILE" "$ENV_TMP"
-    
-    # For each container, add environmentFile
-    for CONTAINER in $CONTAINERS; do
-      # Add environmentFile after image line
-      $SED -i "/virtualisation.oci-containers.containers.\"$CONTAINER\"/,/image = /s/image = \(.*\);/image = \1;\n    environmentFile = \"\/var\/lib\/containers\/storage\/volumes\/${PROJECT_NAME}\/env\/.env\";/" "$ENV_TMP"
-      
-      # Remove environment blocks
-      $SED -i "/virtualisation.oci-containers.containers.\"$CONTAINER\"/,/^  }/s/environment = {/environment = {__TO_REMOVE__/" "$ENV_TMP"
-      $SED -i "/__TO_REMOVE__/,/    };/d" "$ENV_TMP"
-    done
-    
-    # Replace the original file
-    $MV "$ENV_TMP" "$OUTPUT_FILE"
-    
-    if $DEBUG; then
-      $ECHO "DEBUG: Added environmentFile to container definitions"
+      $ECHO "DEBUG: Detected .env file usage but keeping environment blocks intact"
+      $ECHO "DEBUG: Note: You will need to manually set environment variables in the generated file"
     fi
   fi
 
