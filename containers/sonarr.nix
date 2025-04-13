@@ -18,6 +18,20 @@
   };
 
 
+  # Auto-created service to ensure volume directories exist before container start
+  systemd.services."ensure-sonarr-volumes" = {
+    description = "Ensure volume directories exist for sonarr";
+    after = [ "systemd-tmpfiles-setup.service" ];
+    before = [ "podman-sonarr.service" ];
+    requiredBy = [ "podman-sonarr.service" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      ExecStart = "${pkgs.bash}/bin/bash -c \"mkdir -p /var/lib/containers/storage/volumes/sonarr/data; \"";
+    };
+  };
+
+
   # Auto-created activation script to pull container images on rebuild
   system.activationScripts.pullsonarrContainers = ''
     /run/current-system/sw/bin/echo "Pulling latest image for sonarr/sonarr..."

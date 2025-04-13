@@ -60,6 +60,7 @@ for COMPOSE_FILE in $($FIND "$SOURCE_DIR" -name "*.yml"); do
   
   # Using gawk to process the volumes section and handle relative paths properly
   TMPFILES_RULES=""
+  VOLUME_PATHS=""
   
   # Process potentially relative paths in the volumes section
   # Use process substitution to avoid subshell variable scoping issues
@@ -84,6 +85,8 @@ for COMPOSE_FILE in $($FIND "$SOURCE_DIR" -name "*.yml"); do
       
       # Add tmpfiles rule for the new path
       TMPFILES_RULES+="    \"d $new_path 0755 root root - -\"\n"
+      # Store volume path for service modification
+      VOLUME_PATHS+="$new_path\n"
       
       if $DEBUG; then
         $ECHO "DEBUG: Converted relative path $host_path to $new_path"
@@ -98,6 +101,8 @@ for COMPOSE_FILE in $($FIND "$SOURCE_DIR" -name "*.yml"); do
       $SED -i "s|\"$host_path:|\"$NEW_PATH:|g" "$OUTPUT_FILE"
       # Add tmpfiles rule for the new path
       TMPFILES_RULES+="    \"d $NEW_PATH 0755 root root - -\"\n"
+      # Store volume path for service modification
+      VOLUME_PATHS+="$NEW_PATH\n"
       if $DEBUG; then
         $ECHO "DEBUG: Redirected $host_path to $NEW_PATH"
       fi
@@ -110,6 +115,8 @@ for COMPOSE_FILE in $($FIND "$SOURCE_DIR" -name "*.yml"); do
       
       # Add tmpfiles rule for this path
       TMPFILES_RULES+="    \"d $volume_path 0755 root root - -\"\n"
+      # Store volume path for service modification
+      VOLUME_PATHS+="$volume_path\n"
       
       if $DEBUG; then
         $ECHO "DEBUG: Redirected non-existent path $host_path to $volume_path"
@@ -156,6 +163,64 @@ for COMPOSE_FILE in $($FIND "$SOURCE_DIR" -name "*.yml"); do
     ACTIVATION_SCRIPT+="$ECHO \"Done pulling for $PROJECT_NAME/$CONTAINER_NAME.\"\n"
   done
 
+  # Create a code block to ensure volume directories exist before container startup
+  ENSURE_DIRS_BLOCK=""
+  if [ -n "$VOLUME_PATHS" ]; then
+    # Build an ExecStartPre snippet for each volume path
+    EXEC_START_PRE_ITEMS=()
+    while IFS= read -r path; do
+      if [ -n "$path" ]; then
+        EXEC_START_PRE_ITEMS+=("        \"\${pkgs.coreutils}/bin/mkdir -p $path\"")
+      fi
+    done < <(echo -e "$VOLUME_PATHS")
+    
+    # Now join the items with proper formatting (one per line, no trailing newline)
+    EXEC_START_PRE=""
+    for ((i=0; i<${#EXEC_START_PRE_ITEMS[@]}; i++)); do
+      EXEC_START_PRE+="${EXEC_START_PRE_ITEMS[$i]}"
+      # Add newline only if not the last item
+      if ((i < ${#EXEC_START_PRE_ITEMS[@]} - 1)); then
+        EXEC_START_PRE+="\n"
+      fi
+    done
+    
+    # Create a block to inject into each podman service
+    if [ -n "$EXEC_START_PRE" ]; then
+      # Remove trailing newline and comma
+      EXEC_START_PRE=${EXEC_START_PRE%,\\n}
+      
+      # Create a special auto-created-prestart service instead of modifying the podman service directly
+      # This avoids conflicts with the original podman service in the generated nix file
+      ENSURE_DIRS_BLOCK="  # Auto-created service to ensure volume directories exist before container start\n"
+      ENSURE_DIRS_BLOCK+="  systemd.services.\"ensure-$PROJECT_NAME-volumes\" = {\n"
+      ENSURE_DIRS_BLOCK+="    description = \"Ensure volume directories exist for $PROJECT_NAME\";\n"
+      ENSURE_DIRS_BLOCK+="    after = [ \"systemd-tmpfiles-setup.service\" ];\n"
+      ENSURE_DIRS_BLOCK+="    before = [ \"podman-$PROJECT_NAME.service\" ];\n"
+      ENSURE_DIRS_BLOCK+="    requiredBy = [ \"podman-$PROJECT_NAME.service\" ];\n"
+      ENSURE_DIRS_BLOCK+="    serviceConfig = {\n"
+      ENSURE_DIRS_BLOCK+="      Type = \"oneshot\";\n"
+      ENSURE_DIRS_BLOCK+="      RemainAfterExit = true;\n"
+      # Build mkdir commands into a script
+      MKDIR_SCRIPT=""
+      for ((i=0; i<${#EXEC_START_PRE_ITEMS[@]}; i++)); do
+        # Extract just the path from the command (which is in the format "${pkgs.coreutils}/bin/mkdir -p /path/to/dir")
+        path=$(echo "${EXEC_START_PRE_ITEMS[$i]}" | grep -o '/var/lib/containers/storage/volumes/[^ "]*')
+        if [ -n "$path" ]; then
+          MKDIR_SCRIPT+="mkdir -p $path; "
+        fi
+      done
+      
+      # Use a simpler single-line command to avoid quoting issues
+      ENSURE_DIRS_BLOCK+="      ExecStart = \"\${pkgs.bash}/bin/bash -c \\\"$MKDIR_SCRIPT\\\"\";\n"
+      ENSURE_DIRS_BLOCK+="    };\n"
+      ENSURE_DIRS_BLOCK+="  };\n\n"
+      
+      if $DEBUG; then
+        $ECHO "DEBUG: Created service modification block to ensure volume directories"
+      fi
+    fi
+  fi
+
   # Reassemble the output file with the additional blocks.
   if $DEBUG; then
     $ECHO "DEBUG: Adding tmpfiles rules, pull services, and activation script to $OUTPUT_FILE"
@@ -183,6 +248,14 @@ for COMPOSE_FILE in $($FIND "$SOURCE_DIR" -name "*.yml"); do
     $ECHO -e "${PULL_SERVICES}" >> "$TMP_FILE"
     if $DEBUG; then
       $ECHO "DEBUG: Added pull services."
+    fi
+  fi
+  
+  # Insert the service modification to ensure directories exist
+  if [ -n "$ENSURE_DIRS_BLOCK" ]; then
+    $ECHO -e "${ENSURE_DIRS_BLOCK}" >> "$TMP_FILE"
+    if $DEBUG; then
+      $ECHO "DEBUG: Added service modifications for directory creation."
     fi
   fi
 

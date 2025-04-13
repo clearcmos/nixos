@@ -19,6 +19,20 @@
   };
 
 
+  # Auto-created service to ensure volume directories exist before container start
+  systemd.services."ensure-scrutiny-volumes" = {
+    description = "Ensure volume directories exist for scrutiny";
+    after = [ "systemd-tmpfiles-setup.service" ];
+    before = [ "podman-scrutiny.service" ];
+    requiredBy = [ "podman-scrutiny.service" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      ExecStart = "${pkgs.bash}/bin/bash -c \"mkdir -p /var/lib/containers/storage/volumes/scrutiny/config; mkdir -p /var/lib/containers/storage/volumes/scrutiny/influxdb; \"";
+    };
+  };
+
+
   # Auto-created activation script to pull container images on rebuild
   system.activationScripts.pullscrutinyContainers = ''
     /run/current-system/sw/bin/echo "Pulling latest image for scrutiny/scrutiny..."
