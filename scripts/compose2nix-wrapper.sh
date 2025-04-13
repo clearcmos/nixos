@@ -10,17 +10,21 @@ fi
 # Full paths for required commands.
 GREP="/run/current-system/sw/bin/grep"
 HEAD="/run/current-system/sw/bin/head"
+TAIL="/run/current-system/sw/bin/tail"
 SED="/run/current-system/sw/bin/sed"
 SORT="/run/current-system/sw/bin/sort"
 UNIQ="/run/current-system/sw/bin/uniq"
 MKTEMP="/run/current-system/sw/bin/mktemp"
 MV="/run/current-system/sw/bin/mv"
+CP="/run/current-system/sw/bin/cp"
 BASENAME="/run/current-system/sw/bin/basename"
 FIND="/run/current-system/sw/bin/find"
 NIX="/run/current-system/sw/bin/nix"
 MKDIR="/run/current-system/sw/bin/mkdir"
 ECHO="/run/current-system/sw/bin/echo"
 DIRNAME="/run/current-system/sw/bin/dirname"
+CUT="/run/current-system/sw/bin/cut"
+WC="/run/current-system/sw/bin/wc"
 
 # Source directory for compose files
 SOURCE_DIR="/etc/nixos/containers/templates"
@@ -41,6 +45,9 @@ for COMPOSE_FILE in $($FIND "$SOURCE_DIR" -name "*.yml"); do
   $ECHO "Processing '${COMPOSE_FILE}' for project '${PROJECT_NAME}'"
   $ECHO "Output file will be ${OUTPUT_FILE}"
   
+  # Initialize variables
+  HAS_ENV_FILE=false
+  
   # Get compose file directory (for relative path resolution)
   COMPOSE_DIR=$($DIRNAME "$COMPOSE_FILE")
   
@@ -48,11 +55,74 @@ for COMPOSE_FILE in $($FIND "$SOURCE_DIR" -name "*.yml"); do
   if $DEBUG; then
     $ECHO "DEBUG: Running compose2nix for $PROJECT_NAME..."
   fi
-  $NIX --extra-experimental-features "nix-command flakes" run github:aksiksi/compose2nix -- -inputs "$COMPOSE_FILE" -output "${OUTPUT_FILE}" -project "${PROJECT_NAME}"
+  
+  # Create a temporary copy of the compose file with variables replaced
+  TMP_COMPOSE_FILE=$($MKTEMP)
+  $ECHO "Creating temporary compose file with variables replaced for $PROJECT_NAME"
+  
+  # Copy the original compose file
+  cp "$COMPOSE_FILE" "$TMP_COMPOSE_FILE"
+  
+  # Generic handling for variable replacement in any template
+  if $DEBUG; then
+    $ECHO "DEBUG: Processing variable references in $PROJECT_NAME template"
+  fi
+
+  # Instead of removing env_file references, we'll just save the fact that they're used
+  # and process them later
+  ENV_FILE_CHECK=$($GREP -o 'env_file:' "$TMP_COMPOSE_FILE" || true)
+  if [ -n "$ENV_FILE_CHECK" ]; then
+    HAS_ENV_FILE=true
+    if $DEBUG; then
+      $ECHO "DEBUG: Found env_file reference, will handle it after generation"
+    fi
+  fi
+  
+  # Remove env_file entries entirely to avoid errors
+  $SED -i '/env_file:/,/- .*env/d' "$TMP_COMPOSE_FILE"
+  
+  # First handle variables with default values ${VAR:-default}
+  $SED -i -E 's/\$\{([A-Za-z0-9_]+):-([^}]*)\}/\2/g' "$TMP_COMPOSE_FILE"
+  
+  # Then handle required variables ${VAR:?error} using a generic placeholder
+  $SED -i -E 's/\$\{([A-Za-z0-9_]+):\?[^}]*\}/value-from-env-file/g' "$TMP_COMPOSE_FILE"
+  
+  # Finally replace any remaining variables ${VAR} with generic placeholders
+  $SED -i -E 's/\$\{([A-Za-z0-9_]+)\}/value-from-env-file/g' "$TMP_COMPOSE_FILE"
+  
+  if $DEBUG; then
+    $ECHO "DEBUG: Finished processing variable references in $PROJECT_NAME template"
+  fi
+  
+  # Now run compose2nix with the temporary file
+  $NIX --extra-experimental-features "nix-command flakes" run github:aksiksi/compose2nix -- -inputs "$TMP_COMPOSE_FILE" -output "${OUTPUT_FILE}" -project "${PROJECT_NAME}"
+  
+  # Remove the temporary file
+  rm "$TMP_COMPOSE_FILE"
   
   # Remove any unsupported autoUpdate lines
   $SED -i '/autoUpdate/d' "$OUTPUT_FILE"
   
+  # Check for env_file references in the compose file
+  if $DEBUG; then
+    $ECHO "DEBUG: Checking for env_file references in $PROJECT_NAME..."
+  fi
+  
+  # Look for env_file references
+  ENV_FILES=$($GREP -o 'env_file:' "$COMPOSE_FILE" || echo "")
+  if [ -n "$ENV_FILES" ]; then
+    if $DEBUG; then
+      $ECHO "DEBUG: Found env_file references in $PROJECT_NAME"
+    fi
+    
+    # Set the flag to indicate we need to handle env files
+    HAS_ENV_FILE=true
+    
+    if $DEBUG; then
+      $ECHO "DEBUG: Found reference to .env file, will create bind mount for /etc/nixos/.env"
+    fi
+  fi
+
   # Extract volume paths from the generated Nix file and build tmpfiles rules
   if $DEBUG; then
     $ECHO "DEBUG: Extracting volume paths for $PROJECT_NAME..."
@@ -133,12 +203,27 @@ for COMPOSE_FILE in $($FIND "$SOURCE_DIR" -name "*.yml"); do
     $ECHO "DEBUG: Found container images:" $CONTAINER_IMAGES
   fi
 
+  # Create a string to track which images we've already processed to avoid duplicates
+  PROCESSED_IMAGES=""
+
   PULL_SERVICES=""
   ACTIVATION_SCRIPT=""
   for IMAGE in $CONTAINER_IMAGES; do
     # Derive container name: take the part after the last slash and remove any tag.
     CONTAINER_NAME=$($ECHO "${IMAGE##*/}" | $SED 's/:.*$//')
-    SERVICE_NAME="pull-$PROJECT_NAME-$($ECHO ${IMAGE##*/} | $SED 's/:/-/')-image"
+    IMAGE_IDENTIFIER="$($ECHO ${IMAGE##*/} | $SED 's/:/-/')"
+    SERVICE_NAME="pull-$PROJECT_NAME-$IMAGE_IDENTIFIER-image"
+    
+    # Skip if we've already processed this image
+    if [[ "$PROCESSED_IMAGES" == *"|$IMAGE|"* ]]; then
+      if $DEBUG; then
+        $ECHO "DEBUG: Skipping duplicate image $IMAGE"
+      fi
+      continue
+    fi
+    
+    # Mark this image as processed
+    PROCESSED_IMAGES="${PROCESSED_IMAGES}|$IMAGE|"
 
     # Build the pull service block (manual pull option).
     PULL_SERVICES+="  # Auto-created image pull service\n"
@@ -258,6 +343,33 @@ for COMPOSE_FILE in $($FIND "$SOURCE_DIR" -name "*.yml"); do
       $ECHO "DEBUG: Added service modifications for directory creation."
     fi
   fi
+  
+  # Add .env file handling if needed
+  if [ "${HAS_ENV_FILE:-false}" = true ]; then
+    if $DEBUG; then
+      $ECHO "DEBUG: Setting up .env file handling for $PROJECT_NAME"
+    fi
+    
+    # First, create a tmpfiles rule for .env file storage
+    ENV_DEST_DIR="/var/lib/containers/storage/volumes/${PROJECT_NAME}/env"
+    TMPFILES_RULES+="    \"d $ENV_DEST_DIR 0755 root root - -\"\n"
+    
+    # Add a service to copy the .env file
+    SERVICE_BLOCK="  # Auto-created service to copy .env file\n"
+    SERVICE_BLOCK+="  systemd.services.\"copy-env-${PROJECT_NAME}\" = {\n"
+    SERVICE_BLOCK+="    description = \"Copy .env file for ${PROJECT_NAME}\";\n"
+    SERVICE_BLOCK+="    after = [ \"systemd-tmpfiles-setup.service\" ];\n"
+    SERVICE_BLOCK+="    before = [ \"podman-${PROJECT_NAME}.service\" ];\n"
+    SERVICE_BLOCK+="    requiredBy = [ \"podman-${PROJECT_NAME}.service\" ];\n"
+    SERVICE_BLOCK+="    serviceConfig = {\n"
+    SERVICE_BLOCK+="      Type = \"oneshot\";\n"
+    SERVICE_BLOCK+="      RemainAfterExit = true;\n"
+    SERVICE_BLOCK+="      ExecStart = \"\${pkgs.bash}/bin/bash -c 'mkdir -p $ENV_DEST_DIR && cp /etc/nixos/.env $ENV_DEST_DIR/.env'\";\n"
+    SERVICE_BLOCK+="    };\n"
+    SERVICE_BLOCK+="  };\n\n"
+    
+    $ECHO -e "${SERVICE_BLOCK}" >> "$TMP_FILE"
+  fi
 
   # Insert the activation script block that pulls container images on every rebuild.
   if [ -n "$ACTIVATION_SCRIPT" ]; then
@@ -280,6 +392,43 @@ for COMPOSE_FILE in $($FIND "$SOURCE_DIR" -name "*.yml"); do
 
   # Fix any double slashes in paths.
   $SED -i 's|//|/|g' "$OUTPUT_FILE"
+  
+  # Fix variable references in environment variables
+  # Many docker-compose files use syntax like VARIABLE=${OTHER_VARIABLE:-default}
+  # NixOS doesn't understand this syntax, so we need to replace it
+  $SED -i 's/\${\([^}]*\):\?-\([^}]*\)}/\2/g' "$OUTPUT_FILE"
+  
+  # If we have env_file references, modify container definitions to use environmentFile
+  if [ "${HAS_ENV_FILE:-false}" = true ]; then
+    if $DEBUG; then
+      $ECHO "DEBUG: Modifying container definitions to use environmentFile"
+    fi
+    
+    # Get all containers
+    CONTAINERS=$($GREP -o 'virtualisation.oci-containers.containers."[^"]*"' "$OUTPUT_FILE" | $SED 's/virtualisation.oci-containers.containers."//g' | $SED 's/"//g')
+    
+    # Create a temporary file
+    ENV_TMP=$($MKTEMP)
+    $CP "$OUTPUT_FILE" "$ENV_TMP"
+    
+    # For each container, add environmentFile
+    for CONTAINER in $CONTAINERS; do
+      # Add environmentFile after image line
+      $SED -i "/virtualisation.oci-containers.containers.\"$CONTAINER\"/,/image = /s/image = \(.*\);/image = \1;\n    environmentFile = \"\/var\/lib\/containers\/storage\/volumes\/${PROJECT_NAME}\/env\/.env\";/" "$ENV_TMP"
+      
+      # Remove environment blocks
+      $SED -i "/virtualisation.oci-containers.containers.\"$CONTAINER\"/,/^  }/s/environment = {/environment = {__TO_REMOVE__/" "$ENV_TMP"
+      $SED -i "/__TO_REMOVE__/,/    };/d" "$ENV_TMP"
+    done
+    
+    # Replace the original file
+    $MV "$ENV_TMP" "$OUTPUT_FILE"
+    
+    if $DEBUG; then
+      $ECHO "DEBUG: Added environmentFile to container definitions"
+    fi
+  fi
+
 
   $ECHO "Generated ${OUTPUT_FILE} with automatic directory creation, manual pull service, and an activation script for image pulls."
   $ECHO "---------------------------------------------"

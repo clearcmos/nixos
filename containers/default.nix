@@ -6,7 +6,10 @@
 {
   # Import all container configurations
   imports = [
+    ./authentik.nix
     ./glances.nix
+    ./radarr.nix
+    ./sabnzbd.nix
     ./scrutiny.nix
     ./sonarr.nix
     # Add any other container configurations here

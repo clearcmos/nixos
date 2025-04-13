@@ -8,6 +8,6 @@ services:
       - TZ=America/New_York
     volumes:
       - ./data:/config
-      - /mnt/syno/sonarr/tv:/tv
-      - /mnt/syno/sonarr/downloads:/downloads
+      - /mnt/syno/videos/tv:/tv
+      - /mnt/syno/downloads:/downloads
     network_mode: host

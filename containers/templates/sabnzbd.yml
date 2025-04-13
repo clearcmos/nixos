@@ -1,0 +1,13 @@
+services:
+  sabnzbd:
+    image: lscr.io/linuxserver/sabnzbd:latest
+    container_name: sabnzbd
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+    volumes:
+      - ./data:/config
+      - /mnt/syno/downloads:/downloads
+      - /mnt/syno/downloads/incomplete:/incomplete-downloads
+    network_mode: host
