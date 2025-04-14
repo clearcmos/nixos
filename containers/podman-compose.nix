@@ -119,74 +119,19 @@ let
           podman-compose -f "$TMP_COMPOSE" "$@"
         }
         
-        # Get list of containers in this project
-        containers=$(run_compose ps -q 2>/dev/null || echo "")
+        # Simple approach: always stop and start containers
+        echo "Managing containers for $PROJECT_NAME"
         
-        if [ -z "$containers" ]; then
-          echo "No existing containers for $PROJECT_NAME, starting with latest images"
-          run_compose pull
-          run_compose up -d
-        else
-          echo "Checking for image updates for $PROJECT_NAME"
-          
-          # Pull the latest images
-          run_compose pull
-          
-          # Check if any images were updated
-          needs_restart=false
-          
-          # Parse the compose file to get image names
-          images=$(grep -E '^\s+image:' "$TMP_COMPOSE" | awk '{print $2}' | sort -u)
-          
-          for image in $images; do
-            # Process the environment file more safely (for image name resolution)
-            if [ -f "/etc/nixos/.env" ]; then
-              # Export variables one by one, ignoring problematic lines
-              while IFS= read -r line || [ -n "$line" ]; do
-                # Skip comments and empty lines
-                [[ "$line" =~ ^[[:space:]]*# ]] && continue
-                [[ -z "$line" ]] && continue
-                
-                # Only process proper VAR=VALUE lines
-                if [[ "$line" =~ ^[A-Za-z0-9_]+=.* ]]; then
-                  export "$line"
-                fi
-              done < "/etc/nixos/.env"
-            fi
-            
-            # Try to resolve the image name with env vars
-            resolved_image=$(echo "$image" | envsubst 2>/dev/null || echo "$image")
-            
-            # Check if image was updated
-            pull_output=$(podman pull "$resolved_image" 2>&1)
-            if echo "$pull_output" | grep -q "newer image"; then
-              echo "New version of $resolved_image available, will restart containers"
-              needs_restart=true
-              break
-            fi
-          done
-          
-          if $needs_restart; then
-            echo "Restarting containers for $PROJECT_NAME due to image updates"
-            run_compose down
-            run_compose up -d
-          else
-            # Ensure containers are running
-            running_count=$(run_compose ps | grep -c "Up" || echo "0")
-            expected_count=$(grep -c "^\s\+image:" "$TMP_COMPOSE" || echo "0")
-            
-            # Force conversion to integer with arithmetic
-            running_count=$((running_count + 0))
-            expected_count=$((expected_count + 0))
-            
-            echo "Running containers: $running_count, Expected: $expected_count"
-            
-            # Always restart containers regardless of status
-            echo "Starting/restarting containers for $PROJECT_NAME"
-            run_compose down || true
-            run_compose up -d
-          fi
-        fi
+        # Pull the latest images
+        run_compose pull
+        
+        # Stop any existing containers
+        echo "Stopping any existing containers for $PROJECT_NAME"
+        run_compose down || true
+        
+        # Start containers
+        echo "Starting containers for $PROJECT_NAME"
+        run_compose up -d
         
         # Clean up temporary file
         rm -f "$TMP_COMPOSE"
