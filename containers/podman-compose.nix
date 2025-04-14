@@ -125,13 +125,17 @@ let
         # Pull the latest images
         run_compose pull
         
-        # Stop any existing containers
-        echo "Stopping any existing containers for $PROJECT_NAME"
-        run_compose down || true
+        # Stop and remove any existing containers with same names
+        echo "Stopping and removing any existing containers for $PROJECT_NAME"
+        run_compose down -v || true
         
-        # Start containers
+        # Force remove any lingering containers with this project name
+        echo "Cleaning up any leftover containers"
+        podman ps -a --format "{{.Names}}" | grep "^${PROJECT_NAME}_" | xargs -r podman rm -f || true
+        
+        # Start containers with replace option
         echo "Starting containers for $PROJECT_NAME"
-        run_compose up -d
+        run_compose up -d --force-recreate
         
         # Clean up temporary file
         rm -f "$TMP_COMPOSE"
