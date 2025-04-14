@@ -1,3 +1,4 @@
+---
 services:
   radarr:
     image: lscr.io/linuxserver/radarr:latest
@@ -7,7 +8,12 @@ services:
       - PGID=1000
       - TZ=Etc/UTC
     volumes:
-      - ./data:/config
+      - data:/config
       - /mnt/syno/videos/movies:/movies
       - /mnt/syno/downloads:/downloads
+    restart: unless-stopped
     network_mode: host
+
+volumes:
+  data:
+    driver: local

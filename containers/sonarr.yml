@@ -7,7 +7,12 @@ services:
       - PGID=0
       - TZ=America/New_York
     volumes:
-      - ./data:/config
+      - data:/config
       - /mnt/syno/videos/tv:/tv
       - /mnt/syno/downloads:/downloads
+    restart: unless-stopped
     network_mode: host
+
+volumes:
+  data:
+    driver: local

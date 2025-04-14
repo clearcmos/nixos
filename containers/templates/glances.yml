@@ -1,9 +1,0 @@
-services:
-  monitoring:
-    image: nicolargo/glances:latest-full
-    pid: host
-    network_mode: host
-    volumes:
-      - /run/podman/podman.sock:/var/run/docker.sock
-    environment:
-      - "GLANCES_OPT=-w"

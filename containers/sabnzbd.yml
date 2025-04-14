@@ -1,3 +1,4 @@
+---
 services:
   sabnzbd:
     image: lscr.io/linuxserver/sabnzbd:latest
@@ -7,7 +8,11 @@ services:
       - PGID=1000
       - TZ=Etc/UTC
     volumes:
-      - ./data:/config
+      - data:/config
       - /mnt/syno/downloads:/downloads
       - /mnt/syno/downloads/incomplete:/incomplete-downloads
+    restart: unless-stopped
     network_mode: host
+
+volumes:
+  data:
