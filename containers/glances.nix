@@ -14,13 +14,6 @@
   };
 
 
-  # Auto-created activation script to pull container images on rebuild
-  system.activationScripts.pullglancesContainers = ''
-    /run/current-system/sw/bin/echo "Pulling latest image for glances/glances..."
-    ${pkgs.podman}/bin/podman pull nicolargo/glances:latest-full || true
-    /run/current-system/sw/bin/echo "Done pulling for glances/glances."
-    
-  '';
   # Runtime
   virtualisation.podman = {
     enable = true;

@@ -191,6 +191,14 @@ for COMPOSE_FILE in $($FIND "$SOURCE_DIR" -name "*.yml"); do
       if $DEBUG; then
         $ECHO "DEBUG: Redirected non-existent path $host_path to $volume_path"
       fi
+    elif [[ "$host_path" == /var/run/docker.sock ]]; then
+      # Replace Docker socket with Podman socket
+      if $DEBUG; then
+        $ECHO "DEBUG: Replacing Docker socket with Podman socket"
+      fi
+      
+      # Replace in the Nix file
+      $SED -i "s|\"$host_path:|\"\/run\/podman\/podman.sock:|g" "$OUTPUT_FILE"
     fi
   done < <($GREP -o '"[^"]*:[^"]*' "$OUTPUT_FILE")
     
@@ -372,7 +380,8 @@ for COMPOSE_FILE in $($FIND "$SOURCE_DIR" -name "*.yml"); do
   fi
 
   # Insert the activation script block that pulls container images on every rebuild.
-  if [ -n "$ACTIVATION_SCRIPT" ]; then
+  # Use SKIP_ACTIVATION_PULLS=true to bypass this and speed up rebuilds when images haven't changed
+  if [ -n "$ACTIVATION_SCRIPT" ] && [ "${SKIP_ACTIVATION_PULLS:-false}" != "true" ]; then
     $ECHO "  # Auto-created activation script to pull container images on rebuild" >> "$TMP_FILE"
     $ECHO "  system.activationScripts.pull${PROJECT_NAME}Containers = ''" >> "$TMP_FILE"
     # Indent each line of the activation script by 4 spaces.
@@ -380,6 +389,10 @@ for COMPOSE_FILE in $($FIND "$SOURCE_DIR" -name "*.yml"); do
     $ECHO "  '';" >> "$TMP_FILE"
     if $DEBUG; then
       $ECHO "DEBUG: Added activation script for container image pulls."
+    fi
+  elif [ -n "$ACTIVATION_SCRIPT" ]; then
+    if $DEBUG; then
+      $ECHO "DEBUG: Skipping activation script for container image pulls (SKIP_ACTIVATION_PULLS=true)."
     fi
   fi
 

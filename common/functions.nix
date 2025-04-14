@@ -15,6 +15,9 @@
       # Get local IP address
       ip=$(ip route get 1.1.1.1 | awk '{print $7; exit}')
       
+      # Track used ports
+      declare -A used_ports
+      
       # Process each container
       for container in $containers; do
         # Get port information
@@ -33,6 +36,28 @@
         
         # Print container name and URL with proper alignment
         printf "%-''${max_name}s  %s\n" "$container" "$url"
+        
+        # Track this port if it's not empty
+        if [ ! -z "$port" ]; then
+          if [ -z "''${used_ports[$port]}" ]; then
+            used_ports[$port]="$container"
+          else
+            used_ports[$port]="''${used_ports[$port]}, $container"
+          fi
+        fi
+      done
+      
+      # Check for port conflicts
+      conflicts=0
+      for port in "''${!used_ports[@]}"; do
+        containers="''${used_ports[$port]}"
+        if [[ "$containers" == *","* ]]; then
+          if [ $conflicts -eq 0 ]; then
+            echo -e "\n⚠️  Port conflicts detected:"
+          fi
+          echo "  Port $port: $containers"
+          conflicts=1
+        fi
       done
     }
   '';

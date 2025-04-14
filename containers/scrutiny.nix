@@ -33,13 +33,6 @@
   };
 
 
-  # Auto-created activation script to pull container images on rebuild
-  system.activationScripts.pullscrutinyContainers = ''
-    /run/current-system/sw/bin/echo "Pulling latest image for scrutiny/scrutiny..."
-    ${pkgs.podman}/bin/podman pull ghcr.io/analogj/scrutiny:master-omnibus || true
-    /run/current-system/sw/bin/echo "Done pulling for scrutiny/scrutiny."
-    
-  '';
   # Runtime
   virtualisation.podman = {
     enable = true;

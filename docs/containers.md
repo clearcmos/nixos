@@ -190,12 +190,25 @@ The script creates proper volume directories under `/var/lib/containers/storage/
 Image pulling happens in two ways:
 
 1. **Automatic pulling** during system rebuilds via activation scripts
-   - Runs during every `nixos-rebuild switch` or `nixos-rebuild test`
-   - Pulls the latest image but doesn't restart running containers
+   - Can be enabled or disabled with the `--pull-images` flag in the `switch.sh` script
+   - By default, image pulls are skipped during rebuilds for faster system updates
+   - When enabled, pulls the latest image but doesn't restart running containers
 
 2. **Manual pulling** via dedicated systemd services
    - Can be triggered manually: `systemctl start pull-project-image-tag-image.service`
    - Useful for updating images without a system rebuild
+
+### Controlling Image Pulls During Rebuilds
+
+The system now provides two ways to control image pulls:
+
+1. **Using the `switch.sh` script**:
+   - Default (fast): `./scripts/switch.sh hostname` (no image pulls)
+   - Update images: `./scripts/switch.sh hostname --pull-images`
+
+2. **Using the environment variable directly**:
+   - Skip image pulls: `SKIP_ACTIVATION_PULLS=true nixos-rebuild switch --flake ".#hostname"`
+   - Pull images: `nixos-rebuild switch --flake ".#hostname"`
 
 Note: Containers will only use newly pulled images after they are restarted.
 
@@ -375,7 +388,11 @@ cd /etc/nixos/scripts && bash compose2nix-wrapper.sh
 3. Apply the changes:
 
 ```bash
-sudo nixos-rebuild switch
+# Fast rebuild (no image pulls)
+./scripts/switch.sh hostname
+
+# Or with image pulls (slower but ensures latest images)
+./scripts/switch.sh hostname --pull-images
 ```
 
 4. The container will be started automatically, and the data will be stored in `/var/lib/containers/storage/volumes/postgres/data/`.
@@ -383,6 +400,22 @@ sudo nixos-rebuild switch
 ## Troubleshooting
 
 ### Common Issues
+
+#### "New units were started" Message During Rebuild
+
+When running `nixos-rebuild switch`, you may see a message like:
+
+```
+the following new units were started: podman-sonarr.service, run-netns-netns...
+```
+
+This is normal behavior and does not indicate a problem. It happens because:
+
+1. NixOS needs to recreate services when rebuilding the system configuration
+2. Container services like mounts and network namespaces have dynamically generated names
+3. Each rebuild generates new unique identifiers for these services
+
+These messages can be safely ignored, especially if your containers continue to function normally after the rebuild.
 
 #### Container Fails to Start Due to Missing Directories
 

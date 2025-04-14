@@ -32,13 +32,6 @@
   };
 
 
-  # Auto-created activation script to pull container images on rebuild
-  system.activationScripts.pullsonarrContainers = ''
-    /run/current-system/sw/bin/echo "Pulling latest image for sonarr/sonarr..."
-    ${pkgs.podman}/bin/podman pull lscr.io/linuxserver/sonarr:latest || true
-    /run/current-system/sw/bin/echo "Done pulling for sonarr/sonarr."
-    
-  '';
   # Runtime
   virtualisation.podman = {
     enable = true;

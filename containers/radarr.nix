@@ -32,13 +32,6 @@
   };
 
 
-  # Auto-created activation script to pull container images on rebuild
-  system.activationScripts.pullradarrContainers = ''
-    /run/current-system/sw/bin/echo "Pulling latest image for radarr/radarr..."
-    ${pkgs.podman}/bin/podman pull lscr.io/linuxserver/radarr:latest || true
-    /run/current-system/sw/bin/echo "Done pulling for radarr/radarr."
-    
-  '';
   # Runtime
   virtualisation.podman = {
     enable = true;

@@ -32,13 +32,6 @@
   };
 
 
-  # Auto-created activation script to pull container images on rebuild
-  system.activationScripts.pullsabnzbdContainers = ''
-    /run/current-system/sw/bin/echo "Pulling latest image for sabnzbd/sabnzbd..."
-    ${pkgs.podman}/bin/podman pull lscr.io/linuxserver/sabnzbd:latest || true
-    /run/current-system/sw/bin/echo "Done pulling for sabnzbd/sabnzbd."
-    
-  '';
   # Runtime
   virtualisation.podman = {
     enable = true;

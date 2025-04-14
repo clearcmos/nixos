@@ -54,19 +54,6 @@
   };
 
 
-  # Auto-created activation script to pull container images on rebuild
-  system.activationScripts.pullauthentikContainers = ''
-    /run/current-system/sw/bin/echo "Pulling latest image for authentik/postgres..."
-    ${pkgs.podman}/bin/podman pull docker.io/library/postgres:12-alpine || true
-    /run/current-system/sw/bin/echo "Done pulling for authentik/postgres."
-    /run/current-system/sw/bin/echo "Pulling latest image for authentik/redis..."
-    ${pkgs.podman}/bin/podman pull docker.io/library/redis:alpine || true
-    /run/current-system/sw/bin/echo "Done pulling for authentik/redis."
-    /run/current-system/sw/bin/echo "Pulling latest image for authentik/server..."
-    ${pkgs.podman}/bin/podman pull ghcr.io/goauthentik/server:2024.2.2 || true
-    /run/current-system/sw/bin/echo "Done pulling for authentik/server."
-    
-  '';
   # Runtime
   virtualisation.podman = {
     enable = true;
@@ -107,7 +94,7 @@
   };
   systemd.services."podman-authentik-postgresql" = {
     serviceConfig = {
-      Restart = lib.mkOverride 90 "always";
+      Restart = lib.mkOverride 90 "no";
     };
     after = [
       "podman-network-authentik_default.service"
@@ -143,7 +130,7 @@
   };
   systemd.services."podman-authentik-redis" = {
     serviceConfig = {
-      Restart = lib.mkOverride 90 "always";
+      Restart = lib.mkOverride 90 "no";
     };
     after = [
       "podman-network-authentik_default.service"
@@ -189,7 +176,7 @@
   };
   systemd.services."podman-authentik-server" = {
     serviceConfig = {
-      Restart = lib.mkOverride 90 "always";
+      Restart = lib.mkOverride 90 "no";
     };
     after = [
       "podman-network-authentik_default.service"
@@ -218,7 +205,7 @@
       "AUTHENTIK_REDIS__HOST" = "redis";
     };
     volumes = [
-      "/var/run/docker.sock:/var/run/docker.sock:rw"
+      "/run/podman/podman.sock:/var/run/docker.sock:rw"
       "authentik_certs:/certs:rw"
       "authentik_media:/media:rw"
       "authentik_templates:/templates:rw"
@@ -237,7 +224,7 @@
   };
   systemd.services."podman-authentik-worker" = {
     serviceConfig = {
-      Restart = lib.mkOverride 90 "always";
+      Restart = lib.mkOverride 90 "no";
     };
     after = [
       "podman-network-authentik_default.service"
