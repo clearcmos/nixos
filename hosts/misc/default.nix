@@ -12,8 +12,6 @@
     ../../modules/users.nix
     ../../modules/git.nix
     ../../modules/cifs-mounts.nix
-    # Import container configurations
-    ../../containers
-    # Add or remove container imports based on needs for this host
+    # Container configurations are now managed through podman-containers module in configuration.nix
   ];
 }

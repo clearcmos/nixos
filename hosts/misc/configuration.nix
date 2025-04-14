@@ -5,9 +5,8 @@
   # Enable flakes and nix-command
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
   imports = [
-    ../../containers/glances.nix
-    ../../containers/scrutiny.nix
-    ../../containers/sonarr.nix
+    # Replace individual container imports with the new podman-containers module
+    ../../modules/podman-containers.nix
     ../../modules/claude.nix
     ../../modules/nginx.nix
     ../../modules/cifs-mounts.nix
@@ -41,10 +40,9 @@
   # Add misc-specific packages
   environment.systemPackages = with pkgs; [
     cifs-utils
-    compose2nix
-    podman
     samba
     certbot
+    # Podman and related tools are now managed by podman-containers.nix
     # Add other misc-specific packages here
   ];
 
