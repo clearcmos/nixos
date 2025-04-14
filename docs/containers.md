@@ -190,25 +190,21 @@ The script creates proper volume directories under `/var/lib/containers/storage/
 Image pulling happens in two ways:
 
 1. **Automatic pulling** during system rebuilds via activation scripts
-   - Can be enabled or disabled with the `--pull-images` flag in the `switch.sh` script
-   - By default, image pulls are skipped during rebuilds for faster system updates
-   - When enabled, pulls the latest image but doesn't restart running containers
+   - By default, images are pulled during each nixos-rebuild operation
+   - This ensures containers always use the latest available images
+   - Note that pulling images doesn't restart running containers
 
 2. **Manual pulling** via dedicated systemd services
    - Can be triggered manually: `systemctl start pull-project-image-tag-image.service`
    - Useful for updating images without a system rebuild
 
-### Controlling Image Pulls During Rebuilds
+### Using Latest Images
 
-The system now provides two ways to control image pulls:
+After pulling new images, you need to restart the containers to use them:
 
-1. **Using the `switch.sh` script**:
-   - Default (fast): `./scripts/switch.sh hostname` (no image pulls)
-   - Update images: `./scripts/switch.sh hostname --pull-images`
-
-2. **Using the environment variable directly**:
-   - Skip image pulls: `SKIP_ACTIVATION_PULLS=true nixos-rebuild switch --flake ".#hostname"`
-   - Pull images: `nixos-rebuild switch --flake ".#hostname"`
+```bash
+systemctl restart podman-container-name.service
+```
 
 Note: Containers will only use newly pulled images after they are restarted.
 
@@ -388,11 +384,8 @@ cd /etc/nixos/scripts && bash compose2nix-wrapper.sh
 3. Apply the changes:
 
 ```bash
-# Fast rebuild (no image pulls)
-./scripts/switch.sh hostname
-
-# Or with image pulls (slower but ensures latest images)
-./scripts/switch.sh hostname --pull-images
+# Build and switch to the configuration
+nixos-rebuild switch --flake ".#hostname"
 ```
 
 4. The container will be started automatically, and the data will be stored in `/var/lib/containers/storage/volumes/postgres/data/`.
