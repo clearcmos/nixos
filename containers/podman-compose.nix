@@ -83,6 +83,7 @@ let
       # Main service script
       script = ''
         cd /etc/nixos/containers
+        # Define PROJECT_NAME at the Nix level to avoid undefined variable errors
         PROJECT_NAME="${projectName}"
         COMPOSE_FILE="${file}"
         
@@ -131,7 +132,7 @@ let
         
         # Force remove any lingering containers with this project name
         echo "Cleaning up any leftover containers"
-        podman ps -a --format "{{.Names}}" | grep "^${PROJECT_NAME}_" | xargs -r podman rm -f || true
+        podman ps -a --format "{{.Names}}" | grep "^$PROJECT_NAME""_" | xargs -r podman rm -f || true
         
         # Start containers with replace option
         echo "Starting containers for $PROJECT_NAME"
