@@ -67,7 +67,7 @@ let
         # Check if project volume directory already contains data (excluding .env symlink)
         if [ -n "$(ls -A "${volumeDir}" 2>/dev/null | grep -v '^\.env$')" ]; then
           echo "Project volume directory ${volumeDir} already contains data. Skipping initialization."
-          return 0
+          exit 0
         fi
         
         echo "Project volume directory ${volumeDir} is empty, creating necessary subdirectories..."
