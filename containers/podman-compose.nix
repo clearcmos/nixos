@@ -189,16 +189,34 @@ let
         if [ "$RUNNING_CONTAINERS" -gt 0 ]; then
           echo "Containers for $PROJECT_NAME are already running. Skipping recreation at boot."
         else
-          # Pull the latest images once a day, not on every boot
+          # Only pull images once a week instead of daily to reduce Docker Hub rate limits
           LAST_PULL_FILE="/var/lib/containers/storage/volumes/${projectName}/.last_pull"
-          CURRENT_DATE=$(date +%Y%m%d)
+          CURRENT_WEEK=$(date +%Y%U)  # ISO week number format YYYYWW
           
-          if [ ! -f "$LAST_PULL_FILE" ] || [ "$(cat $LAST_PULL_FILE 2>/dev/null)" != "$CURRENT_DATE" ]; then
-            echo "Pulling latest images for $PROJECT_NAME"
-            run_compose pull
-            echo "$CURRENT_DATE" > "$LAST_PULL_FILE"
+          if [ ! -f "$LAST_PULL_FILE" ] || [ "$(cat $LAST_PULL_FILE 2>/dev/null)" != "$CURRENT_WEEK" ]; then
+            # Check if all images already exist locally before pulling
+            MISSING_IMAGES=0
+            
+            # Extract all image names from the compose file
+            IMAGES=$(grep -E '^\s+image:' "$COMPOSE_FILE" | awk '{print $2}')
+            
+            for IMAGE in $IMAGES; do
+              # Check if image exists locally
+              if ! podman image exists "$IMAGE"; then
+                MISSING_IMAGES=1
+                break
+              fi
+            done
+            
+            if [ "$MISSING_IMAGES" -eq 1 ]; then
+              echo "Pulling images for $PROJECT_NAME (missing images or weekly update)"
+              run_compose pull
+              echo "$CURRENT_WEEK" > "$LAST_PULL_FILE"
+            else
+              echo "All images already exist locally. Skipping pull."
+            fi
           else
-            echo "Images were already pulled today. Skipping."
+            echo "Images were already pulled this week. Skipping."
           fi
           
           # Stop and remove any existing containers with same names
