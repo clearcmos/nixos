@@ -115,8 +115,8 @@ let
             done < "/etc/nixos/.env"
           fi
           
-          # Run the podman-compose command
-          podman-compose -f "$TMP_COMPOSE" "$@"
+          # Run the podman-compose command with explicit project name
+          podman-compose -f "$TMP_COMPOSE" -p "$PROJECT_NAME" "$@"
         }
         
         # Simple approach: always stop and start containers
