@@ -175,11 +175,20 @@ let
             running_count=$(run_compose ps | grep -c "Up" || echo "0")
             expected_count=$(grep -c "^\s\+image:" "$TMP_COMPOSE" || echo "0")
             
+            # Make sure the count variables are integers
+            running_count=${running_count:-0}
+            expected_count=${expected_count:-0}
+            
+            echo "Running containers: $running_count, Expected: $expected_count"
+            
+            # Always start containers if they're not running
             if [ "$running_count" -lt "$expected_count" ]; then
               echo "Some containers are not running, starting all containers"
               run_compose up -d
             else
-              echo "All containers for $PROJECT_NAME are up to date and running"
+              echo "Restarting containers for $PROJECT_NAME"
+              run_compose down
+              run_compose up -d
             fi
           fi
         fi
