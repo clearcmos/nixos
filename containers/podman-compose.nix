@@ -44,8 +44,9 @@ let
       path = [ pkgs.podman-compose pkgs.podman pkgs.coreutils pkgs.gnused pkgs.bash pkgs.gawk pkgs.gnugrep ];
       
       # Ensure appropriate ordering
-      after = [ "network-online.target" ];
+      after = [ "network-online.target" "mount-cifs-shares.service" ];
       wants = [ "network-online.target" ];
+      requires = [ "mount-cifs-shares.service" ];
       wantedBy = [ "multi-user.target" ];
       
       # Handle volumes before starting
@@ -62,6 +63,14 @@ let
         
         # Extract and create volume directories for relative paths
         cd /etc/nixos/containers
+        
+        # Check if project volume directory already contains data (excluding .env symlink)
+        if [ -n "$(ls -A "${volumeDir}" 2>/dev/null | grep -v '^\.env$')" ]; then
+          echo "Project volume directory ${volumeDir} already contains data. Skipping initialization."
+          return 0
+        fi
+        
+        echo "Project volume directory ${volumeDir} is empty, creating necessary subdirectories..."
         
         # Process volumes that start with ./
         # Specifically look for volume paths in the volumes section
@@ -172,23 +181,38 @@ let
           podman-compose -f "$TMP_COMPOSE" -p "$PROJECT_NAME" "$@"
         }
         
-        # Simple approach: always stop and start containers
         echo "Managing containers for $PROJECT_NAME"
         
-        # Pull the latest images
-        run_compose pull
+        # Check if containers are already running
+        RUNNING_CONTAINERS=$(podman ps --format "{{.Names}}" | grep "^$PROJECT_NAME" | wc -l)
         
-        # Stop and remove any existing containers with same names
-        echo "Stopping and removing any existing containers for $PROJECT_NAME"
-        run_compose down -v || true
-        
-        # Force remove any lingering containers with this project name
-        echo "Cleaning up any leftover containers"
-        podman ps -a --format "{{.Names}}" | grep "^$PROJECT_NAME""_" | xargs -r podman rm -f || true
-        
-        # Start containers with replace option
-        echo "Starting containers for $PROJECT_NAME"
-        run_compose up -d --force-recreate
+        if [ "$RUNNING_CONTAINERS" -gt 0 ]; then
+          echo "Containers for $PROJECT_NAME are already running. Skipping recreation at boot."
+        else
+          # Pull the latest images once a day, not on every boot
+          LAST_PULL_FILE="/var/lib/containers/storage/volumes/${projectName}/.last_pull"
+          CURRENT_DATE=$(date +%Y%m%d)
+          
+          if [ ! -f "$LAST_PULL_FILE" ] || [ "$(cat $LAST_PULL_FILE 2>/dev/null)" != "$CURRENT_DATE" ]; then
+            echo "Pulling latest images for $PROJECT_NAME"
+            run_compose pull
+            echo "$CURRENT_DATE" > "$LAST_PULL_FILE"
+          else
+            echo "Images were already pulled today. Skipping."
+          fi
+          
+          # Stop and remove any existing containers with same names
+          echo "Stopping and removing any existing containers for $PROJECT_NAME"
+          run_compose down -v || true
+          
+          # Force remove any lingering containers with this project name
+          echo "Cleaning up any leftover containers"
+          podman ps -a --format "{{.Names}}" | grep "^$PROJECT_NAME""_" | xargs -r podman rm -f || true
+          
+          # Start containers with replace option
+          echo "Starting containers for $PROJECT_NAME"
+          run_compose up -d
+        fi
         
         # Clean up temporary file
         rm -f "$TMP_COMPOSE"
