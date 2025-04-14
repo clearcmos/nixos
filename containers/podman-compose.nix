@@ -83,10 +83,10 @@ let
             echo "Volume ${volumeDir}/$vol_name is empty, initializing..."
             
             # Try to restore from backup if available
-            BACKUP_PATH="/mnt/syno/backups/misc/container-volumes/${projectName}/${vol_name}.tar.gz"
+            BACKUP_PATH="/mnt/syno/backups/misc/container-volumes/${projectName}/$vol_name.tar.gz"
             if [ -f "$BACKUP_PATH" ]; then
               echo "Restoring from backup: $BACKUP_PATH"
-              tar -xzf "$BACKUP_PATH" -C "${volumeDir}/$vol_name" || echo "Failed to restore backup for ${vol_name}"
+              tar -xzf "$BACKUP_PATH" -C "${volumeDir}/$vol_name" || echo "Failed to restore backup for $vol_name"
             else
               echo "No backup found for ${vol_name}, creating empty volume structure"
               # Create any necessary subdirectories for specific containers
@@ -122,10 +122,10 @@ let
               echo "Named volume ${volumeDir}/$named_volume is empty, initializing..."
               
               # Try to restore from backup if available
-              BACKUP_PATH="/mnt/syno/backups/misc/container-volumes/${projectName}/${named_volume}.tar.gz"
+              BACKUP_PATH="/mnt/syno/backups/misc/container-volumes/${projectName}/$named_volume.tar.gz"
               if [ -f "$BACKUP_PATH" ]; then
                 echo "Restoring from backup: $BACKUP_PATH"
-                tar -xzf "$BACKUP_PATH" -C "${volumeDir}/$named_volume" || echo "Failed to restore backup for ${named_volume}"
+                tar -xzf "$BACKUP_PATH" -C "${volumeDir}/$named_volume" || echo "Failed to restore backup for $named_volume"
               fi
             fi
           fi
