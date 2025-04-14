@@ -18,7 +18,7 @@ services:
       POSTGRES_USER: ${PG_USER:-authentik}
       POSTGRES_DB: ${PG_DB:-authentik}
     env_file:
-      - /etc/nixos/.env
+      - ./.env
   redis:
     image: docker.io/library/redis:alpine
     command: --save 60 1 --loglevel warning
@@ -45,7 +45,7 @@ services:
       - ./media:/media
       - ./templates:/templates
     env_file:
-      - /etc/nixos/.env
+      - ./.env
     ports:
       - "${COMPOSE_PORT_HTTP:-9000}:9000"
     depends_on:
@@ -68,7 +68,7 @@ services:
       - ./certs:/certs
       - ./templates:/templates
     env_file:
-      - /etc/nixos/.env
+      - ./.env
     depends_on:
       - postgresql
       - redis

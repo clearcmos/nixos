@@ -27,6 +27,7 @@
     gnused
     gawk
     gettext # For envsubst
+    coreutils # For basic commands like awk, grep, etc.
   ];
   
   # Create a convenient shell alias to list container services

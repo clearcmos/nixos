@@ -36,28 +36,36 @@ let
     in
     {
       description = "Podman Compose for ${projectName}";
-      path = [ pkgs.podman-compose pkgs.podman pkgs.coreutils pkgs.gnused ];
+      path = [ pkgs.podman-compose pkgs.podman pkgs.coreutils pkgs.gnused pkgs.bash pkgs.gawk pkgs.gnugrep ];
       
       # Ensure appropriate ordering
       after = [ "network-online.target" ];
       wants = [ "network-online.target" ];
       wantedBy = [ "multi-user.target" ];
       
-      # Handle .env and volume directories before starting
+      # Handle volumes before starting
       preStart = ''
         # Create project volume directory
         mkdir -p ${volumeDir}
         
-        # Copy .env file if it exists
+        # Create symlink to original .env file instead of copying
         if [ -f /etc/nixos/.env ]; then
-          cp /etc/nixos/.env ${volumeDir}/.env
+          # Remove any existing file or directory first
+          rm -f ${volumeDir}/.env
+          ln -sf /etc/nixos/.env ${volumeDir}/.env
         fi
         
         # Extract and create volume directories for relative paths
         cd /etc/nixos/containers
         
         # Process volumes that start with ./
-        grep -o './[^ :]*' "${file}" | while read -r vol_path; do
+        # Specifically look for volume paths in the volumes section
+        grep -E '^\s*-\s*\./[^ :]*' "${file}" 2>/dev/null | grep -o '\./[^ :]*' | while read -r vol_path; do
+          # Skip .env paths which are not real volumes
+          if [ "$vol_path" = "./.env" ]; then
+            continue
+          fi
+          
           # Remove ./ prefix to get the volume name
           vol_name=$(echo "$vol_path" | sed 's|^\./||' | cut -d '/' -f1)
           
@@ -67,7 +75,7 @@ let
         done
       '';
       
-      # Create a custom docker-compose.yml with modified volume paths
+      # Main service script
       script = ''
         cd /etc/nixos/containers
         PROJECT_NAME="${projectName}"
@@ -82,18 +90,42 @@ let
         # Replace relative volume paths (./path) with absolute paths to our volume dir
         sed -i "s|\\./|${volumeDir}/|g" "$TMP_COMPOSE"
         
+        # Also modify env_file paths to point to our volume dir
+        sed -i "s|env_file:\\s*\\n\\s*-\\s*/etc/nixos/\\.env|env_file:\\n      - ${volumeDir}/.env|g" "$TMP_COMPOSE"
+        
+        # Function to run podman-compose with environment variables
+        run_compose() {
+          # Process the environment file more safely
+          if [ -f "/etc/nixos/.env" ]; then
+            # Export variables one by one, ignoring problematic lines
+            while IFS= read -r line || [ -n "$line" ]; do
+              # Skip comments and empty lines
+              [[ "$line" =~ ^[[:space:]]*# ]] && continue
+              [[ -z "$line" ]] && continue
+              
+              # Only process proper VAR=VALUE lines
+              if [[ "$line" =~ ^[A-Za-z0-9_]+=.* ]]; then
+                export "$line"
+              fi
+            done < "/etc/nixos/.env"
+          fi
+          
+          # Run the podman-compose command
+          podman-compose -f "$TMP_COMPOSE" "$@"
+        }
+        
         # Get list of containers in this project
-        containers=$(podman-compose -f "$TMP_COMPOSE" ps -q 2>/dev/null || echo "")
+        containers=$(run_compose ps -q 2>/dev/null || echo "")
         
         if [ -z "$containers" ]; then
           echo "No existing containers for $PROJECT_NAME, starting with latest images"
-          podman-compose -f "$TMP_COMPOSE" pull
-          podman-compose -f "$TMP_COMPOSE" up -d
+          run_compose pull
+          run_compose up -d
         else
           echo "Checking for image updates for $PROJECT_NAME"
           
           # Pull the latest images
-          podman-compose -f "$TMP_COMPOSE" pull
+          run_compose pull
           
           # Check if any images were updated
           needs_restart=false
@@ -102,7 +134,22 @@ let
           images=$(grep -E '^\s+image:' "$TMP_COMPOSE" | awk '{print $2}' | sort -u)
           
           for image in $images; do
-            # Expand any environment variables in the image name
+            # Process the environment file more safely (for image name resolution)
+            if [ -f "/etc/nixos/.env" ]; then
+              # Export variables one by one, ignoring problematic lines
+              while IFS= read -r line || [ -n "$line" ]; do
+                # Skip comments and empty lines
+                [[ "$line" =~ ^[[:space:]]*# ]] && continue
+                [[ -z "$line" ]] && continue
+                
+                # Only process proper VAR=VALUE lines
+                if [[ "$line" =~ ^[A-Za-z0-9_]+=.* ]]; then
+                  export "$line"
+                fi
+              done < "/etc/nixos/.env"
+            fi
+            
+            # Try to resolve the image name with env vars
             resolved_image=$(echo "$image" | envsubst 2>/dev/null || echo "$image")
             
             # Check if image was updated
@@ -116,16 +163,16 @@ let
           
           if $needs_restart; then
             echo "Restarting containers for $PROJECT_NAME due to image updates"
-            podman-compose -f "$TMP_COMPOSE" down
-            podman-compose -f "$TMP_COMPOSE" up -d
+            run_compose down
+            run_compose up -d
           else
             # Ensure containers are running
-            running_count=$(podman-compose -f "$TMP_COMPOSE" ps | grep -c "Up" || echo "0")
+            running_count=$(run_compose ps | grep -c "Up" || echo "0")
             expected_count=$(grep -c "^\s\+image:" "$TMP_COMPOSE" || echo "0")
             
             if [ "$running_count" -lt "$expected_count" ]; then
               echo "Some containers are not running, starting all containers"
-              podman-compose -f "$TMP_COMPOSE" up -d
+              run_compose up -d
             else
               echo "All containers for $PROJECT_NAME are up to date and running"
             fi
@@ -165,6 +212,12 @@ in
     environment.systemPackages = with pkgs; [
       podman
       podman-compose
+      podman-tui
+      
+      # Additional dependencies required for our scripts
+      gnused
+      gawk
+      gettext # For envsubst
     ];
     
     # Enable podman socket and service

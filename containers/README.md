@@ -101,3 +101,26 @@ The persistent data is stored at:
 ```
 /var/lib/containers/storage/volumes/<yml-name>/
 ```
+
+## Troubleshooting
+
+### Container Variable Expansion
+For containers that use environment variables in their image names (like `${VAR_NAME:-default}`), make sure your .env file defines these variables.
+
+Example from authentik.yml:
+```yaml
+image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2024.2.2}
+```
+
+You need to define `AUTHENTIK_IMAGE` and `AUTHENTIK_TAG` in your .env file.
+
+### Container Exit Codes
+If containers exit immediately after starting, check:
+1. Port conflicts - another service might be using the same port
+2. Permissions - ensure volumes have proper permissions
+3. Environment variables - check if required variables are missing 
+
+You can view container logs with:
+```bash
+podman logs <container_name>
+```
