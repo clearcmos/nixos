@@ -14,10 +14,15 @@ let
     in
       name;
   
-  # List all compose files in the containers directory
-  composeFiles = builtins.filter
-    (name: lib.hasSuffix ".yml" name)
-    (builtins.attrNames (builtins.readDir /etc/nixos/containers));
+  # Define compose files explicitly instead of reading from filesystem
+  composeFiles = [
+    "glances.yml"
+    "scrutiny.yml"
+    "radarr.yml"
+    "sabnzbd.yml"
+    "sonarr.yml"
+    "authentik.yml"
+  ];
   
   # Create a list of paths to all compose files
   composeFilePaths = map (name: "/etc/nixos/containers/${name}") composeFiles;

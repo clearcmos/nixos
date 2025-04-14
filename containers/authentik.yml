@@ -32,14 +32,14 @@ services:
     volumes:
       - ./redis:/data
   server:
-    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2024.2.2}
+    image: ghcr.io/goauthentik/server:2024.2.2
     restart: unless-stopped
     command: server
     environment:
       AUTHENTIK_REDIS__HOST: redis
       AUTHENTIK_POSTGRESQL__HOST: postgresql
-      AUTHENTIK_POSTGRESQL__USER: ${PG_USER:-authentik}
-      AUTHENTIK_POSTGRESQL__NAME: ${PG_DB:-authentik}
+      AUTHENTIK_POSTGRESQL__USER: authentik
+      AUTHENTIK_POSTGRESQL__NAME: authentik
       AUTHENTIK_POSTGRESQL__PASSWORD: ${AUTHENTIK_PG_PASS}
     volumes:
       - ./media:/media
@@ -47,19 +47,19 @@ services:
     env_file:
       - ./.env
     ports:
-      - "${COMPOSE_PORT_HTTP:-9000}:9000"
+      - "9000:9000"
     depends_on:
       - postgresql
       - redis
   worker:
-    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2024.2.2}
+    image: ghcr.io/goauthentik/server:2024.2.2
     restart: unless-stopped
     command: worker
     environment:
       AUTHENTIK_REDIS__HOST: redis
       AUTHENTIK_POSTGRESQL__HOST: postgresql
-      AUTHENTIK_POSTGRESQL__USER: ${PG_USER:-authentik}
-      AUTHENTIK_POSTGRESQL__NAME: ${PG_DB:-authentik}
+      AUTHENTIK_POSTGRESQL__USER: authentik
+      AUTHENTIK_POSTGRESQL__NAME: authentik
       AUTHENTIK_POSTGRESQL__PASSWORD: ${AUTHENTIK_PG_PASS}
     user: root
     volumes:
