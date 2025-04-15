@@ -91,13 +91,8 @@ let
           if [ -z "$(ls -A "${volumeDir}/$vol_name" 2>/dev/null)" ]; then
             echo "Volume ''${volumeDir}/$vol_name is empty, initializing..."
             
-            # Try to restore from backup if available
-            BACKUP_PATH="/mnt/syno/backups/misc/container-volumes/${projectName}/$vol_name.tar.gz"
-            if [ -f "$BACKUP_PATH" ]; then
-              echo "Restoring from backup: $BACKUP_PATH"
-              tar -xzf "$BACKUP_PATH" -C "${volumeDir}/$vol_name" || echo "Failed to restore backup for $vol_name"
-            else
-              echo "No backup found for $vol_name, creating empty volume structure"
+            # No backup restoration, always create empty volume structure
+            echo "Creating empty volume structure for $vol_name"
               # For database volumes, let the container initialize them
               if [[ "$vol_name" = "database" && "${projectName}" = "authentik" ]]; then
                 # Special case for postgres - leave it empty to allow postgres to initialize
@@ -128,12 +123,8 @@ let
             if [ -z "$(ls -A "${volumeDir}/$named_volume" 2>/dev/null)" ]; then
               echo "Named volume ''${volumeDir}/$named_volume is empty, initializing..."
               
-              # Try to restore from backup if available
-              BACKUP_PATH="/mnt/syno/backups/misc/container-volumes/${projectName}/$named_volume.tar.gz"
-              if [ -f "$BACKUP_PATH" ]; then
-                echo "Restoring from backup: $BACKUP_PATH"
-                tar -xzf "$BACKUP_PATH" -C "${volumeDir}/$named_volume" || echo "Failed to restore backup for $named_volume"
-              else
+              # No backup restoration, always create empty volume structure
+              echo "Creating empty volume structure for $named_volume"
                 # For database volumes, set proper permissions but don't create structure
                 if [[ "$named_volume" = "database" && "${projectName}" = "authentik" ]]; then
                   # Special case for postgres - leave it empty to allow postgres to initialize
