@@ -93,15 +93,15 @@ let
             
             # No backup restoration, always create empty volume structure
             echo "Creating empty volume structure for $vol_name"
-              # For database volumes, let the container initialize them
-              if [[ "$vol_name" = "database" && "${projectName}" = "authentik" ]]; then
-                # Special case for postgres - leave it empty to allow postgres to initialize
-                chmod 700 "${volumeDir}/$vol_name"
-                chown 70:0 "${volumeDir}/$vol_name"
-              else
-                # Default case - just ensure permissions are set
-                chmod 755 "${volumeDir}/$vol_name"
-              fi
+            
+            # For database volumes, let the container initialize them
+            if [[ "$vol_name" = "database" && "${projectName}" = "authentik" ]]; then
+              # Special case for postgres - leave it empty to allow postgres to initialize
+              chmod 700 "${volumeDir}/$vol_name"
+              chown 70:0 "${volumeDir}/$vol_name"
+            else
+              # Default case - just ensure permissions are set
+              chmod 755 "${volumeDir}/$vol_name"
             fi
           fi
         done
@@ -125,12 +125,12 @@ let
               
               # No backup restoration, always create empty volume structure
               echo "Creating empty volume structure for $named_volume"
-                # For database volumes, set proper permissions but don't create structure
-                if [[ "$named_volume" = "database" && "${projectName}" = "authentik" ]]; then
-                  # Special case for postgres - leave it empty to allow postgres to initialize
-                  chmod 700 "${volumeDir}/$named_volume"
-                  chown 70:0 "${volumeDir}/$named_volume"
-                fi
+              
+              # For database volumes, set proper permissions but don't create structure
+              if [[ "$named_volume" = "database" && "${projectName}" = "authentik" ]]; then
+                # Special case for postgres - leave it empty to allow postgres to initialize
+                chmod 700 "${volumeDir}/$named_volume"
+                chown 70:0 "${volumeDir}/$named_volume"
               fi
             fi
           fi
