@@ -98,17 +98,15 @@ let
               tar -xzf "$BACKUP_PATH" -C "${volumeDir}/$vol_name" || echo "Failed to restore backup for $vol_name"
             else
               echo "No backup found for $vol_name, creating empty volume structure"
-              # Create any necessary subdirectories for specific containers
-              case "${projectName}_$vol_name" in
-                authentik_database)
-                  # Create PG data directory structure
-                  mkdir -p "${volumeDir}/$vol_name/PG_12_201909212"
-                  ;;
-                *)
-                  # Default case - just ensure permissions are set
-                  chmod 755 "${volumeDir}/$vol_name"
-                  ;;
-              esac
+              # For database volumes, let the container initialize them
+              if [[ "$vol_name" = "database" && "${projectName}" = "authentik" ]]; then
+                # Special case for postgres - leave it empty to allow postgres to initialize
+                chmod 700 "${volumeDir}/$vol_name"
+                chown 70:0 "${volumeDir}/$vol_name"
+              else
+                # Default case - just ensure permissions are set
+                chmod 755 "${volumeDir}/$vol_name"
+              fi
             fi
           fi
         done
@@ -135,6 +133,13 @@ let
               if [ -f "$BACKUP_PATH" ]; then
                 echo "Restoring from backup: $BACKUP_PATH"
                 tar -xzf "$BACKUP_PATH" -C "${volumeDir}/$named_volume" || echo "Failed to restore backup for $named_volume"
+              else
+                # For database volumes, set proper permissions but don't create structure
+                if [[ "$named_volume" = "database" && "${projectName}" = "authentik" ]]; then
+                  # Special case for postgres - leave it empty to allow postgres to initialize
+                  chmod 700 "${volumeDir}/$named_volume"
+                  chown 70:0 "${volumeDir}/$named_volume"
+                fi
               fi
             fi
           fi
