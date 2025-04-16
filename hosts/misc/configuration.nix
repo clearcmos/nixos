@@ -8,21 +8,37 @@
     ../../modules/claude.nix
     ../../modules/nginx.nix
     ../../modules/cifs-mounts.nix
-    ../../modules/scrutiny.nix
+    # Removing custom scrutiny module - using built-in NixOS module instead
   ];
   
   # Enable Scrutiny SMART disk monitoring
   services.scrutiny = {
     enable = true;
-    port = 8080;
-    dataDir = "/var/lib/scrutiny";
-    configDir = "/etc/scrutiny";
+    openFirewall = true;  # Open the firewall for the Scrutiny web interface
+    package = pkgs.scrutiny;
+    
+    # Enable the collector
+    collector.enable = true;
   };
   
   # Add NGINX virtual host for Scrutiny
   services.nginx.virtualHosts."scrutiny.${config.networking.hostName}.${config.networking.domain}" = {
     locations."/" = {
       proxyPass = "http://localhost:8080";
+      proxyWebsockets = true;
+      extraConfig = ''
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+      '';
+    };
+  };
+  
+  # Add NGINX virtual host for Glances
+  services.nginx.virtualHosts."glances.${config.networking.hostName}.${config.networking.domain}" = {
+    locations."/" = {
+      proxyPass = "http://localhost:61208";
       proxyWebsockets = true;
       extraConfig = ''
         proxy_set_header Host $host;
@@ -64,8 +80,22 @@
     samba
     certbot
     smartmontools  # Required for Scrutiny's SMART data collection
+    glances       # System monitoring tool
     # Add other misc-specific packages here
   ];
+
+  # Enable Glances as a web service
+  systemd.services.glances = {
+    description = "Glances system monitoring web service";
+    after = [ "network.target" ];
+    wantedBy = [ "multi-user.target" ];
+    serviceConfig = {
+      ExecStart = "${pkgs.glances}/bin/glances -w -t 5 --port 61208 -B 0.0.0.0";
+      Restart = "always";
+      RestartSec = 3;
+      User = "root";  # Running as root to access all system info
+    };
+  };
 
   # Console configuration for CLI-only environment
   console = {
