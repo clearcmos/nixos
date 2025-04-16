@@ -183,14 +183,7 @@ in {
         directory = "/var/lib/acme/cockpit.bedrosn.com";
       };
       
-      # Add the new site-specific domains that might not have certificates yet
-      "scrutiny.bedrosn.com" = {
-        directory = "/var/lib/acme/scrutiny.bedrosn.com";
-      };
-      
-      "glances.bedrosn.com" = {
-        directory = "/var/lib/acme/glances.bedrosn.com";
-      };
+      # The new site-specific domains will be automatically defined by their respective site modules
     };
   };
   
