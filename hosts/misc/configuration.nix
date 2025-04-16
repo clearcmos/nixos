@@ -5,8 +5,6 @@
   # Enable flakes and nix-command
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
   imports = [
-    # Replace individual container imports with the new podman-containers module
-    ../../modules/podman-containers.nix
     ../../modules/claude.nix
     ../../modules/nginx.nix
     ../../modules/cifs-mounts.nix
@@ -42,7 +40,6 @@
     cifs-utils
     samba
     certbot
-    # Podman and related tools are now managed by podman-containers.nix
     # Add other misc-specific packages here
   ];
 
@@ -54,7 +51,6 @@
 
   # Environment variables that could be referenced by other modules
   environment.variables = {
-    CONTAINER_DATA_DIR = "/var/lib/containers";
   };
 
   # Example usage of environment variables in a systemd service
@@ -70,7 +66,6 @@
       Environment = [
         "HOST_NAME=misc"
         "HOST_IP=192.168.1.3"
-        "CONTAINER_DATA_DIR=/var/lib/containers"
       ];
     };
   };

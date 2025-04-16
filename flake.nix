@@ -24,9 +24,7 @@
             # Explicitly include the modules directory
             {
               imports = [ 
-                ./modules 
-                # Include containers directory to make container configs available
-                ./containers
+                ./modules
               ];
             }
           ] ++ modules;

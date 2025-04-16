@@ -27,8 +27,6 @@
   # Host-specific packages
   environment.systemPackages = with pkgs; [
     # Add jellyimmich-specific packages here
-    podman
-    compose2nix
     cifs-utils
     samba
   ];
@@ -46,7 +44,6 @@
   
   # Environment variables that could be referenced by other modules
   environment.variables = {
-    CONTAINER_DATA_DIR = "/var/lib/containers";
   };
   
   # Example usage of environment variables in a systemd service
@@ -62,7 +59,6 @@
       Environment = [
         "HOST_NAME=jellyimmich"
         "HOST_IP=192.168.1.200"
-        "CONTAINER_DATA_DIR=/var/lib/containers"
       ];
     };
   };
