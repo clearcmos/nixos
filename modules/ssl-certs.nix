@@ -6,6 +6,7 @@
     defaults = {
       # Email is already defined in nginx.nix
       webroot = "/var/lib/acme/acme-challenge";
+      group = "nginx";  # Set nginx as the group for all certificates
     };
     
     certs = {

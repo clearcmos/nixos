@@ -13,6 +13,10 @@
 
   # Add NGINX virtual host for Scrutiny with country restriction
   services.nginx.virtualHosts."scrutiny.${config.networking.hostName}.${config.networking.domain}" = {
+    # Enable HTTPS with imported certificate
+    forceSSL = true;
+    useACMEHost = "scrutiny.${config.networking.hostName}.${config.networking.domain}";
+    
     locations."/" = {
       proxyPass = "http://localhost:8080";
       proxyWebsockets = true;
@@ -28,5 +32,12 @@
         proxy_set_header X-Forwarded-Proto $scheme;
       '';
     };
+  };
+  
+  # Configure imported certificate
+  security.acme.certs."scrutiny.${config.networking.hostName}.${config.networking.domain}" = {
+    # Mark certificate as external (imported) to prevent automatic renewal attempts
+    # until you're ready to switch to NixOS-managed renewal
+    directory = "/var/lib/acme/scrutiny.${config.networking.hostName}.${config.networking.domain}";
   };
 }
