@@ -8,9 +8,7 @@
     ../../modules/claude.nix
     ../../modules/nginx.nix
     ../../modules/cifs-mounts.nix
-    ../../sites/scrutiny.nix
-    ../../sites/glances.nix
-    # Removing custom scrutiny module - using built-in NixOS module instead
+    # Sites are now imported in hosts/misc/default.nix
   ];
   
   # Enable CIFS mounts
