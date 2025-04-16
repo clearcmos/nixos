@@ -1,6 +1,11 @@
 { config, lib, pkgs, ... }:
 
 {
+  # Configure certificate for Glances
+  security.acme.certs."glances.bedrosn.com" = {
+    directory = "/var/lib/acme/glances.bedrosn.com";
+  };
+  
   # Add NGINX virtual host for Glances with country restriction
   services.nginx.virtualHosts."glances.bedrosn.com" = {
     # Enable HTTPS with certificate

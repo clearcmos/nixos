@@ -11,6 +11,11 @@
     collector.enable = true;
   };
 
+  # Configure certificate for Scrutiny
+  security.acme.certs."scrutiny.bedrosn.com" = {
+    directory = "/var/lib/acme/scrutiny.bedrosn.com";
+  };
+
   # Add NGINX virtual host for Scrutiny with country restriction
   services.nginx.virtualHosts."scrutiny.bedrosn.com" = {
     # Enable HTTPS with certificate
