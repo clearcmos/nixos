@@ -8,7 +8,30 @@
     ../../modules/claude.nix
     ../../modules/nginx.nix
     ../../modules/cifs-mounts.nix
+    ../../modules/scrutiny.nix
   ];
+  
+  # Enable Scrutiny SMART disk monitoring
+  services.scrutiny = {
+    enable = true;
+    port = 8080;
+    dataDir = "/var/lib/scrutiny";
+    configDir = "/etc/scrutiny";
+  };
+  
+  # Add NGINX virtual host for Scrutiny
+  services.nginx.virtualHosts."scrutiny.${config.networking.hostName}.${config.networking.domain}" = {
+    locations."/" = {
+      proxyPass = "http://localhost:8080";
+      proxyWebsockets = true;
+      extraConfig = ''
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+      '';
+    };
+  };
   
   # Enable CIFS mounts
   cifsShares.enable = true;
@@ -40,6 +63,7 @@
     cifs-utils
     samba
     certbot
+    smartmontools  # Required for Scrutiny's SMART data collection
     # Add other misc-specific packages here
   ];
 
