@@ -4,7 +4,7 @@
   security.acme = {
     acceptTerms = true;
     defaults = {
-      email = "your-email@example.com";  # Replace with your actual email
+      # Email is already defined in nginx.nix
       webroot = "/var/lib/acme/acme-challenge";
     };
     
