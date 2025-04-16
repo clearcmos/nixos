@@ -2,7 +2,11 @@
 
 {
   # Add NGINX virtual host for Glances with country restriction
-  services.nginx.virtualHosts."glances.${config.networking.hostName}.${config.networking.domain}" = {
+  services.nginx.virtualHosts."glances.bedrosn.com" = {
+    # Enable HTTPS with certificate
+    forceSSL = true;
+    useACMEHost = "glances.bedrosn.com";
+    
     locations."/" = {
       proxyPass = "http://localhost:61208";
       proxyWebsockets = true;
