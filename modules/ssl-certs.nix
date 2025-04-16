@@ -40,31 +40,59 @@ let
   
   # Function to create Cloudflare DNS script
   mkCloudflareScript = subdomain: ''
-    SUBDOMAIN="${subdomain}"
-    DOMAIN="${baseDomain}"
-    RECORD_NAME="$SUBDOMAIN.$DOMAIN"
-    API_TOKEN="${cfApiToken}"
-    ZONE_ID="${cfZoneId}"
-    EMAIL="${cfEmail}"
+    # Create a temporary script file for Cloudflare DNS operations
+    cat > /tmp/cloudflare_dns_${subdomain}.sh << 'EOF'
+#!/bin/bash
+
+# Source environment variables
+source /etc/nixos/.env
+
+SUBDOMAIN="$1"
+DOMAIN="$2"
+RECORD_NAME="$SUBDOMAIN.$DOMAIN"
+
+echo "Checking DNS for $RECORD_NAME..."
+
+# Check if a DNS record already exists
+response=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/$CLOUDFLARE_ZONE_ID/dns_records?type=CNAME&name=$RECORD_NAME" \
+    -H "X-Auth-Email: $CLOUDFLARE_EMAIL" \
+    -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+    -H "Content-Type: application/json")
+
+# Check if record exists
+record_count=$(echo "$response" | jq -r '.result | length')
+
+if [ "$record_count" = "0" ]; then
+    echo "DNS record does not exist, creating now..."
     
-    # Check if record exists
-    RECORD_EXISTS=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records?type=CNAME&name=$RECORD_NAME" \
-      -H "X-Auth-Email: $EMAIL" \
-      -H "Authorization: Bearer $API_TOKEN" \
-      -H "Content-Type: application/json" | \
-      ${pkgs.jq}/bin/jq -r '.result | length')
-      
-    if [ "$RECORD_EXISTS" = "0" ]; then
-      echo "Creating DNS record for $RECORD_NAME..."
-      curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records" \
-        -H "X-Auth-Email: $EMAIL" \
-        -H "Authorization: Bearer $API_TOKEN" \
+    # Create the DNS record
+    create_response=$(curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$CLOUDFLARE_ZONE_ID/dns_records" \
+        -H "X-Auth-Email: $CLOUDFLARE_EMAIL" \
+        -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
         -H "Content-Type: application/json" \
-        --data "{\"type\":\"CNAME\",\"name\":\"$SUBDOMAIN\",\"content\":\"$DOMAIN\",\"ttl\":1,\"proxied\":false}" | \
-        ${pkgs.jq}/bin/jq -r '.success'
+        --data "{\"type\":\"CNAME\",\"name\":\"$SUBDOMAIN\",\"content\":\"$DOMAIN\",\"ttl\":1,\"proxied\":false}")
+    
+    success=$(echo "$create_response" | jq -r '.success')
+    
+    if [ "$success" = "true" ]; then
+        echo "Successfully created DNS record for $RECORD_NAME"
     else
-      echo "DNS record for $RECORD_NAME already exists."
+        error=$(echo "$create_response" | jq -r '.errors[0].message')
+        echo "Failed to create DNS record: $error"
     fi
+else
+    echo "DNS record for $RECORD_NAME already exists."
+fi
+EOF
+
+    # Make the script executable
+    chmod +x /tmp/cloudflare_dns_${subdomain}.sh
+    
+    # Run the script with parameters
+    /tmp/cloudflare_dns_${subdomain}.sh "${subdomain}" "${baseDomain}"
+    
+    # Clean up
+    rm /tmp/cloudflare_dns_${subdomain}.sh
   '';
   
   # Function to check and create certificates
@@ -101,7 +129,7 @@ in {
   security.acme = {
     acceptTerms = true;
     defaults = {
-      # Email is already defined in nginx.nix
+      email = cfEmail; # Use email from .env
       webroot = "/var/lib/acme/acme-challenge";
       group = "nginx";  # Set nginx as the group for all certificates
     };
@@ -210,15 +238,82 @@ in {
       ${mkCertScript subdomain}
     '') allSubdomains}
     
-    # If any domains need certificates, display instructions
+    # If any domains need certificates, automatically create them
     if [ -f "/tmp/missing-certs/domains.txt" ] && [ -s "/tmp/missing-certs/domains.txt" ]; then
       echo ""
       echo "=============================================="
       echo "ATTENTION: The following domains need certificates:"
       cat /tmp/missing-certs/domains.txt
-      echo ""
-      echo "You may need to run a command like:"
-      echo "sudo certbot --nginx $(cat /tmp/missing-certs/domains.txt | xargs -I{} echo "-d {}")"
+      
+      # Create a script to set up certificates
+      cat > /tmp/setup_certificates.sh << 'CERTEOF'
+#!/bin/bash
+
+# Source environment variables
+source /etc/nixos/.env
+
+# Create certificates for missing domains
+if [ -f "/tmp/missing-certs/domains.txt" ]; then
+  DOMAINS=$(cat /tmp/missing-certs/domains.txt)
+  for DOMAIN in $DOMAINS; do
+    echo "Setting up certificate for $DOMAIN..."
+    
+    # First ensure DNS record exists
+    SUBDOMAIN=$(echo "$DOMAIN" | cut -d'.' -f1)
+    BASE_DOMAIN="bedrosn.com"
+    
+    # Check if DNS record exists
+    DNS_CHECK=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/$CLOUDFLARE_ZONE_ID/dns_records?type=CNAME&name=$DOMAIN" \
+      -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+      -H "Content-Type: application/json")
+    
+    DNS_EXISTS=$(echo "$DNS_CHECK" | jq -r '.result | length')
+    
+    if [ "$DNS_EXISTS" = "0" ]; then
+      echo "Creating DNS record for $DOMAIN..."
+      curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$CLOUDFLARE_ZONE_ID/dns_records" \
+        -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+        -H "Content-Type: application/json" \
+        --data "{\"type\":\"CNAME\",\"name\":\"$SUBDOMAIN\",\"content\":\"$BASE_DOMAIN\",\"ttl\":1,\"proxied\":false}"
+      
+      # Wait for DNS propagation
+      echo "Waiting for DNS propagation (30 seconds)..."
+      sleep 30
+    fi
+    
+    # Create directory for certificate
+    mkdir -p "/var/lib/acme/$DOMAIN"
+    
+    # Now create the certificate using certbot
+    certbot certonly --webroot -w /var/lib/acme/acme-challenge -d "$DOMAIN" --email "$MAIN_EMAIL" --agree-tos --non-interactive
+    
+    # Copy certificates to the right location
+    if [ -d "/etc/letsencrypt/live/$DOMAIN" ]; then
+      cp "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" "/var/lib/acme/$DOMAIN/"
+      cp "/etc/letsencrypt/live/$DOMAIN/privkey.pem" "/var/lib/acme/$DOMAIN/"
+      cp "/etc/letsencrypt/live/$DOMAIN/chain.pem" "/var/lib/acme/$DOMAIN/"
+      cp "/etc/letsencrypt/live/$DOMAIN/cert.pem" "/var/lib/acme/$DOMAIN/"
+      
+      # Set proper permissions
+      chmod -R 755 "/var/lib/acme/$DOMAIN"
+      chmod 640 "/var/lib/acme/$DOMAIN/privkey.pem"
+      
+      echo "Certificate for $DOMAIN created successfully"
+    else
+      echo "Failed to create certificate for $DOMAIN"
+    fi
+  done
+fi
+CERTEOF
+      
+      # Make script executable
+      chmod +x /tmp/setup_certificates.sh
+      
+      # Run the script
+      echo "Running certificate setup script..."
+      /tmp/setup_certificates.sh
+      
+      echo "Certificate setup complete."
       echo "=============================================="
     fi
   '';
