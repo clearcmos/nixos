@@ -39,5 +39,42 @@
         fi
       done
     }
+
+    pupdate() {
+      # Get current week in YYYYWW format
+      CURRENT_WEEK=$(date +%Y%U)
+      echo "Current week: $CURRENT_WEEK"
+      echo ""
+      
+      # Find containers that need updates
+      NEEDS_UPDATE=0
+      echo "Checking containers for updates..."
+      
+      for service in $(systemctl list-units --type=service | grep podman-compose | awk '{print $1}'); do
+        # Extract project name from service name
+        project=$(echo $service | sed 's/podman-compose-\(.*\)\.service/\1/')
+        last_pull_file="/var/lib/containers/storage/volumes/$project/.last_pull"
+        
+        # Check if update is needed
+        if [ ! -f "$last_pull_file" ] || [ "$(cat $last_pull_file 2>/dev/null)" != "$CURRENT_WEEK" ]; then
+          last_pull=$(cat $last_pull_file 2>/dev/null || echo "never")
+          echo "Updating: $project (last pull: $last_pull)"
+          
+          # Restart service to trigger update
+          systemctl restart $service
+          NEEDS_UPDATE=1
+          
+          # Wait briefly to avoid overwhelming the system
+          sleep 2
+        fi
+      done
+      
+      if [ $NEEDS_UPDATE -eq 0 ]; then
+        echo "All containers are up-to-date (last pulled this week)."
+      else
+        echo ""
+        echo "Update process initiated. Check 'journalctl -fu podman-compose-*' for details."
+      fi
+    }
   '';
 }
