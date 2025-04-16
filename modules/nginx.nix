@@ -140,6 +140,9 @@ ${whitelistFormatted}
             
             include /etc/nginx/conf.d/*.conf;
             include /etc/nginx/sites-enabled/*;
+            
+            # Include NixOS-generated virtual hosts
+            include /etc/nginx/sites-generated/*;
         }
       '';
     };
@@ -214,7 +217,51 @@ EOL
     system.activationScripts.nginxDirs = ''
       mkdir -p /etc/nginx/conf.d
       mkdir -p /etc/nginx/sites-enabled
+      mkdir -p /etc/nginx/sites-generated
       mkdir -p /var/log/nginx
+      
+      # Generate virtual host files for NixOS-defined virtual hosts
+      echo "Generating nginx virtual host files..."
+      
+      # Clean up old files
+      rm -f /etc/nginx/sites-generated/*
+      
+      # For each virtual host in our NixOS configuration, create a config file
+      ${lib.concatStringsSep "\n" (lib.mapAttrsToList (name: vhost: ''
+        echo "Generating config for ${name}..."
+        cat > /etc/nginx/sites-generated/${name}.conf << VHOST
+server {
+    listen 80;
+    listen 443 ssl;
+    server_name ${name};
+    
+    # SSL configuration
+    ${if vhost ? sslCertificate then "ssl_certificate ${vhost.sslCertificate};" else ""}
+    ${if vhost ? sslCertificateKey then "ssl_certificate_key ${vhost.sslCertificateKey};" else ""}
+    
+    # Try to include SSL settings if they exist
+    include /etc/nginx/ssl/options-ssl-nginx.conf;
+    
+    # Basic proxy configuration for all sites
+    ${lib.concatStringsSep "\n    " (lib.mapAttrsToList (locName: locConfig: ''
+location ${locName} {
+    ${if locConfig ? proxyPass then "proxy_pass ${locConfig.proxyPass};" else ""}
+    ${if locConfig ? proxyWebsockets && locConfig.proxyWebsockets then ''
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";'' else ""}
+    
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    
+    ${if locConfig ? extraConfig then locConfig.extraConfig else ""}
+}
+    '') (vhost.locations or {}))}
+}
+VHOST
+      '') config.services.nginx.virtualHosts)}
     '';
     
     # Firewall configuration - ports to open when firewall is enabled
