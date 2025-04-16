@@ -1,16 +1,13 @@
 { config, lib, pkgs, ... }:
 
 {
-  # Configure certificate for Glances
-  security.acme.certs."glances.bedrosn.com" = {
-    directory = "/var/lib/acme/glances.bedrosn.com";
-  };
-  
   # Add NGINX virtual host for Glances with country restriction
   services.nginx.virtualHosts."glances.bedrosn.com" = {
     # Enable HTTPS with certificate
+    enableACME = false;  # Don't generate a certificate with ACME
     forceSSL = true;
-    useACMEHost = "glances.bedrosn.com";
+    sslCertificate = "/var/lib/acme/glances.bedrosn.com/fullchain.pem";
+    sslCertificateKey = "/var/lib/acme/glances.bedrosn.com/privkey.pem";
     
     locations."/" = {
       proxyPass = "http://localhost:61208";

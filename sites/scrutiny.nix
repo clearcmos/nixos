@@ -11,16 +11,13 @@
     collector.enable = true;
   };
 
-  # Configure certificate for Scrutiny
-  security.acme.certs."scrutiny.bedrosn.com" = {
-    directory = "/var/lib/acme/scrutiny.bedrosn.com";
-  };
-
   # Add NGINX virtual host for Scrutiny with country restriction
   services.nginx.virtualHosts."scrutiny.bedrosn.com" = {
     # Enable HTTPS with certificate
+    enableACME = false;  # Don't generate a certificate with ACME
     forceSSL = true;
-    useACMEHost = "scrutiny.bedrosn.com";
+    sslCertificate = "/var/lib/acme/scrutiny.bedrosn.com/fullchain.pem";
+    sslCertificateKey = "/var/lib/acme/scrutiny.bedrosn.com/privkey.pem";
     
     locations."/" = {
       proxyPass = "http://localhost:8080";
