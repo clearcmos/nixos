@@ -6,6 +6,7 @@
     ./claude.nix
     ./git.nix
     ./nginx.nix
+    ./scrutiny.nix
     ./users.nix
   ];
 }
