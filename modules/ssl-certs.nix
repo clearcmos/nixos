@@ -129,7 +129,7 @@ in {
   security.acme = {
     acceptTerms = true;
     defaults = {
-      email = cfEmail; # Use email from .env
+      email = getEnv "MAIN_EMAIL" ""; # Use MAIN_EMAIL from .env without mentioning any email
       webroot = "/var/lib/acme/acme-challenge";
       group = "nginx";  # Set nginx as the group for all certificates
     };
