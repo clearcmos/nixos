@@ -82,7 +82,8 @@ in
 
     firewall = {
       enable = true;
-      allowedTCPPorts = [ 22 ]; # SSH port (HTTP/HTTPS moved to nginx.nix)
+      allowedTCPPorts = [ 22 139 445 ]; # SSH and Samba ports
+      allowedUDPPorts = [ 137 138 ]; # Samba ports
     };
   };
 
@@ -146,6 +147,23 @@ in
       # Protect env file with restricted permissions
       chmod 600 /etc/nixos/.env
     '';
+    
+    # Set the Samba password for root user using the password from .env
+    setupSambaPassword = ''
+      # Only run if Samba is enabled
+      if [ -d /var/lib/samba ]; then
+        echo "Setting up Samba password for root user..."
+        # Extract password from .env file
+        ROOT_PASSWORD=$(grep "SYSTEM_PASSWORD" /etc/nixos/.env | cut -d= -f2)
+        
+        # Use full path to smbpasswd to ensure it's found
+        SMBPASSWD="${pkgs.samba}/bin/smbpasswd"
+        
+        # Create smbpasswd entry for root
+        (echo "$ROOT_PASSWORD"; echo "$ROOT_PASSWORD") | $SMBPASSWD -s -a root
+        echo "Samba password for root user has been set"
+      fi
+    '';
   };
 
   # Allow unfree packages
@@ -153,6 +171,38 @@ in
   
   # Enable nix-ld for running non-NixOS executables (needed for VS Code Remote SSH)
   programs.nix-ld.enable = true;
+  
+  # Samba configuration for root filesystem access
+  services.samba = {
+    enable = true;
+    securityType = "user";
+    settings = {
+      global = {
+        "workgroup" = "WORKGROUP";
+        "server string" = "NixOS Server";
+        "server role" = "standalone server";
+        "log file" = "/var/log/samba/smbd.log";
+        "max log size" = "50";
+        "hosts allow" = "192.168.1.2 127.0.0.1";
+        "hosts deny" = "all";
+        "guest account" = "nobody";
+        "map to guest" = "bad user";
+        # Override the default "invalid users" setting that blocks root
+        "invalid users" = [ ];
+      };
+      root = {
+        "path" = "/";
+        "browseable" = "yes";
+        "writable" = "yes";
+        "valid users" = "root";
+        "public" = "no";
+        "create mask" = "0755";
+        "directory mask" = "0755";
+        "force user" = "root";
+        "force group" = "root";
+      };
+    };
+  };
   
   # This value determines the NixOS release from which the default
   # settings for stateful data, like file locations and database versions

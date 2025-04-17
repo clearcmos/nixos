@@ -4,10 +4,16 @@
   environment.systemPackages = with pkgs; [
     cifs-utils
     curl
+    fzf
     git
     htop
+    jq
+    ncdu
+    nodejs
+    python3
     samba
     smartmontools
+    tldr
     tmux
     tree
     unzip
