@@ -227,40 +227,57 @@ EOL
       rm -f /etc/nginx/sites-generated/*
       
       # For each virtual host in our NixOS configuration, create a config file
-      ${lib.concatStringsSep "\n" (lib.mapAttrsToList (name: vhost: ''
+      ${lib.concatStringsSep "\n" (lib.mapAttrsToList (name: vhost: let 
+          # Create separate files with simple templates
+          serverName = name;
+          sslCert = if vhost ? sslCertificate then vhost.sslCertificate else "/var/lib/acme/${name}/fullchain.pem";
+          sslKey = if vhost ? sslCertificateKey then vhost.sslCertificateKey else "/var/lib/acme/${name}/privkey.pem";
+        in ''
         echo "Generating config for ${name}..."
-        cat > /etc/nginx/sites-generated/${name}.conf << VHOST
+        cat > /etc/nginx/sites-generated/${name}.conf << 'EOF'
 server {
     listen 80;
     listen 443 ssl;
-    server_name ${name};
+    server_name ${serverName};
     
     # SSL configuration
-    ${if vhost ? sslCertificate then "ssl_certificate ${vhost.sslCertificate};" else ""}
-    ${if vhost ? sslCertificateKey then "ssl_certificate_key ${vhost.sslCertificateKey};" else ""}
+    ssl_certificate ${sslCert};
+    ssl_certificate_key ${sslKey};
     
     # Try to include SSL settings if they exist
     include /etc/nginx/ssl/options-ssl-nginx.conf;
+EOF
+        
+        # Add locations
+        ${lib.concatStringsSep "\n" (lib.mapAttrsToList (locName: locConfig: let
+          proxyPassUrl = if locConfig ? proxyPass then locConfig.proxyPass else "";
+          useWebsockets = locConfig ? proxyWebsockets && locConfig.proxyWebsockets;
+          extraLines = if locConfig ? extraConfig then locConfig.extraConfig else "";
+        in ''
+        # Add location ${locName}
+        cat >> /etc/nginx/sites-generated/${name}.conf << 'LOC_EOF'
     
-    # Basic proxy configuration for all sites
-    ${lib.concatStringsSep "\n    " (lib.mapAttrsToList (locName: locConfig: ''
-location ${locName} {
-    ${if locConfig ? proxyPass then "proxy_pass ${locConfig.proxyPass};" else ""}
-    ${if locConfig ? proxyWebsockets && locConfig.proxyWebsockets then ''
-    proxy_http_version 1.1;
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection "upgrade";'' else ""}
-    
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    
-    ${if locConfig ? extraConfig then locConfig.extraConfig else ""}
+    location ${locName} {
+        ${if proxyPassUrl != "" then "proxy_pass ${proxyPassUrl};" else ""}
+        ${if useWebsockets then ''
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";'' else ""}
+        
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        ${extraLines}
+    }
+LOC_EOF
+        '') (vhost.locations or {}))}
+        
+        # Close the server block
+        cat >> /etc/nginx/sites-generated/${name}.conf << 'EOF'
 }
-    '') (vhost.locations or {}))}
-}
-VHOST
+EOF
       '') config.services.nginx.virtualHosts)}
     '';
     
