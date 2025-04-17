@@ -47,6 +47,8 @@ in
       ./nginx.nix
       # Include packages configuration
       ./packages.nix
+      # Include CIFS mounts configuration
+      ./cifs-mounts.nix
       # Include site-specific configurations
       ./sites/scrutiny.nix
       ./sites/glances.nix
