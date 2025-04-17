@@ -127,48 +127,30 @@ EOF
 in {
   # ACME/certificate configuration
   # Create a script to be run after the system is built
-  # This avoids exposing the email in the Nix store
   system.activationScripts.createAcmeEmailScript = ''
-    cat > /tmp/fix-acme-email.sh << 'EOF'
+    # Create a simple script to fix ACME email at runtime
+    cat > /tmp/fix-acme-email.sh << 'EOFX'
 #!/bin/bash
-# Script to fix ACME email addresses without exposing them in the Nix configuration
-
-# Get the email from .env
+# Fix ACME email from .env file
 if [ -f /etc/nixos/.env ]; then
   email=$(grep "^MAIN_EMAIL=" /etc/nixos/.env | cut -d'=' -f2)
   if [ -n "$email" ]; then
     echo "Setting ACME email to value from .env..."
-    
-    # Find acme service files
-    for service in $(ls /etc/systemd/system/acme-*.service 2>/dev/null); do
+    for service in /etc/systemd/system/acme-*.service; do
       echo "Processing $service"
-      
-      # Replace empty email with actual email
-      if grep -q -- \"--email ''\" \"$service\"; then
-        echo "Updating email in $service"
-        sed -i "s/--email ''/--email '$email'/g" "$service"
-        
-        # Reload the service
-        systemctl daemon-reload
-        
-        # Attempt to restart the service
-        service_name=$(basename "$service")
-        systemctl try-restart "$service_name"
-      fi
+      cp "$service" "$service.bak"
+      sed -i "s/--email ''/--email '$email'/g" "$service.bak"
+      cat "$service.bak" > "$service"
+      rm "$service.bak"
     done
-  else
-    echo "No email found in .env file"
+    systemctl daemon-reload
   fi
-else
-  echo "No .env file found"
 fi
-EOF
+EOFX
     chmod +x /tmp/fix-acme-email.sh
     
-    # Schedule this to run after the system is fully built
-    echo "#!/bin/bash" > /etc/cron.d/fix-acme-email
-    echo "@reboot root /tmp/fix-acme-email.sh" >> /etc/cron.d/fix-acme-email
-    chmod 644 /etc/cron.d/fix-acme-email
+    # Run it once now during activation
+    /tmp/fix-acme-email.sh
   '';
 
   security.acme = {
