@@ -250,7 +250,10 @@ EOF
         
         # Add locations
         ${lib.concatStringsSep "\n" (lib.mapAttrsToList (locName: locConfig: let
-          proxyPassUrl = if locConfig ? proxyPass then locConfig.proxyPass else "";
+          # Fix localhost to 127.0.0.1 in proxy URLs
+          proxyPassUrl = if locConfig ? proxyPass 
+                         then builtins.replaceStrings ["http://localhost"] ["http://127.0.0.1"] locConfig.proxyPass
+                         else "";
           useWebsockets = locConfig ? proxyWebsockets && locConfig.proxyWebsockets;
           extraLines = if locConfig ? extraConfig then locConfig.extraConfig else "";
         in ''
