@@ -328,10 +328,17 @@ in
   };
 
   # System activation scripts
-  system.activationScripts.protectEnvFile = ''
-    # Protect env file with restricted permissions
-    chmod 600 /etc/nixos/.env
-  '';
+  system.activationScripts = {
+    protectEnvFile = ''
+      # Protect env file with restricted permissions
+      chmod 600 /etc/nixos/.env
+    '';
+    
+    # Add a debug script to check which email is being used
+    debugAcmeEmail = ''
+      echo "DEBUG: ACME email being used: ${main_email}" > /tmp/acme-email-debug
+    '';
+  };
 
   # Allow unfree packages
   nixpkgs.config.allowUnfree = true;
