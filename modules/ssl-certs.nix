@@ -129,88 +129,43 @@ in {
   security.acme = {
     acceptTerms = true;
     defaults = {
-      # Use a fixed email to avoid errors
-      email = "admin@bedrosn.com";
-      webroot = "/var/lib/acme/acme-challenge";
+      # Use email from .env file
+      email = "${getEnv "MAIN_EMAIL" "admin@bedrosn.com"}";
       group = "nginx";  # Set nginx as the group for all certificates
+      # Use DNS validation with Cloudflare by default
+      dnsProvider = "cloudflare";
+      credentialsFile = "/run/secrets/cloudflare-credentials";
+      dnsPropagationCheck = true;
+      # Critical fix: explicitly set webroot to null to avoid conflict with dnsProvider
+      webroot = null;
     };
     
     certs = {
-      "auth.bedrosn.com" = {
-        directory = "/var/lib/acme/auth.bedrosn.com";
-      };
+      # Since we defined defaults with dnsProvider and credentialsFile,
+      # we can simplify these definitions
+      "auth.bedrosn.com" = { };
+      "jellyfin.bedrosn.com" = { };
+      "bedrosn.com" = { };
+      "diskvue.bedrosn.com" = { };
+      "git.bedrosn.com" = { };
+      "overseerr.bedrosn.com" = { };
+      "n8n.bedrosn.com" = { };
+      "ha.bedrosn.com" = { };
+      "base.bedrosn.com" = { };
+      "cleaning.bedrosn.com" = { };
+      "dash.bedrosn.com" = { };
+      "dsm.bedrosn.com" = { };
+      "sab.bedrosn.com" = { };
+      "portainer.bedrosn.com" = { };
+      "files.bedrosn.com" = { };
+      "radarr.bedrosn.com" = { };
+      "sonarr.bedrosn.com" = { };
+      "photos.bedrosn.com" = { };
+      "cockpit.bedrosn.com" = { };
       
-      "jellyfin.bedrosn.com" = {
-        directory = "/var/lib/acme/jellyfin.bedrosn.com";
-      };
-      
-      "bedrosn.com" = {
-        directory = "/var/lib/acme/bedrosn.com";
-      };
-      
-      "diskvue.bedrosn.com" = {
-        directory = "/var/lib/acme/diskvue.bedrosn.com";
-      };
-      
-      "git.bedrosn.com" = {
-        directory = "/var/lib/acme/git.bedrosn.com";
-      };
-      
-      "overseerr.bedrosn.com" = {
-        directory = "/var/lib/acme/overseerr.bedrosn.com";
-      };
-      
-      "n8n.bedrosn.com" = {
-        directory = "/var/lib/acme/n8n.bedrosn.com";
-      };
-      
-      "ha.bedrosn.com" = {
-        directory = "/var/lib/acme/ha.bedrosn.com";
-      };
-      
-      "base.bedrosn.com" = {
-        directory = "/var/lib/acme/base.bedrosn.com";
-      };
-      
-      "cleaning.bedrosn.com" = {
-        directory = "/var/lib/acme/cleaning.bedrosn.com";
-      };
-      
-      "dash.bedrosn.com" = {
-        directory = "/var/lib/acme/dash.bedrosn.com";
-      };
-      
-      "dsm.bedrosn.com" = {
-        directory = "/var/lib/acme/dsm.bedrosn.com";
-      };
-      
-      "sab.bedrosn.com" = {
-        directory = "/var/lib/acme/sab.bedrosn.com";
-      };
-      
-      "portainer.bedrosn.com" = {
-        directory = "/var/lib/acme/portainer.bedrosn.com";
-      };
-      
-      "files.bedrosn.com" = {
-        directory = "/var/lib/acme/files.bedrosn.com";
-      };
-      
-      "radarr.bedrosn.com" = {
-        directory = "/var/lib/acme/radarr.bedrosn.com";
-      };
-      
-      "sonarr.bedrosn.com" = {
-        directory = "/var/lib/acme/sonarr.bedrosn.com";
-      };
-      
-      "photos.bedrosn.com" = {
-        directory = "/var/lib/acme/photos.bedrosn.com";
-      };
-      
-      "cockpit.bedrosn.com" = {
-        directory = "/var/lib/acme/cockpit.bedrosn.com";
-      };
+      # Add certificates for glances and scrutiny
+      "glances.bedrosn.com" = { };
+      "scrutiny.bedrosn.com" = { };
       
       # The new site-specific domains will be automatically defined by their respective site modules
     };
@@ -222,6 +177,19 @@ in {
     jq
     certbot
   ];
+  
+  # Setup Cloudflare credentials for ACME
+  system.activationScripts.setupCloudflareCredentials = ''
+    mkdir -p /run/secrets
+    if [ ! -f /run/secrets/cloudflare-credentials ] || ! grep -q "dns_cloudflare_api_token" /run/secrets/cloudflare-credentials; then
+      echo "Creating Cloudflare credentials file for ACME..."
+      cat > /run/secrets/cloudflare-credentials << EOF
+dns_cloudflare_email = ${cfEmail}
+dns_cloudflare_api_token = ${cfApiToken}
+EOF
+      chmod 600 /run/secrets/cloudflare-credentials
+    fi
+  '';
   
   # Create a script to check and ensure all subdomains are properly configured in Cloudflare and have certificates
   system.activationScripts.ensureSubdomains = ''

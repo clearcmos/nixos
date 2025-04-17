@@ -120,9 +120,11 @@ in {
                 $geoip2_data_country_code country iso_code;
             }
             
+            # For now, we'll allow all countries
             map $geoip2_data_country_code $allowed_country {
-                default no;
-${whitelistFormatted}
+                default yes;  # Allow all countries for WAN access
+                # Original whitelist kept for reference
+                # ${whitelistFormatted}
             }
             
             geo $exclusions {
@@ -229,10 +231,49 @@ EOL
       ${lib.concatStringsSep "\n" (lib.mapAttrsToList (name: vhost: let 
           # Create separate files with simple templates
           serverName = name;
-          sslCert = if vhost ? sslCertificate then vhost.sslCertificate else "/var/lib/acme/${name}/fullchain.pem";
-          sslKey = if vhost ? sslCertificateKey then vhost.sslCertificateKey else "/var/lib/acme/${name}/privkey.pem";
+          # Check if ACME is enabled or useACMEHost is set
+          useACME = vhost ? enableACME && vhost.enableACME;
+          acmeHost = if vhost ? useACMEHost then vhost.useACMEHost else name;
+          
+          # If ACME is enabled, use the ACME path
+          sslCert = if useACME then "/var/lib/acme/${name}/fullchain.pem"
+                    else if vhost ? useACMEHost then "/var/lib/acme/${vhost.useACMEHost}/fullchain.pem"
+                    else if vhost ? sslCertificate then vhost.sslCertificate 
+                    else "/var/lib/acme/${name}/fullchain.pem";
+          sslKey = if useACME then "/var/lib/acme/${name}/privkey.pem"
+                   else if vhost ? useACMEHost then "/var/lib/acme/${vhost.useACMEHost}/privkey.pem"
+                   else if vhost ? sslCertificateKey then vhost.sslCertificateKey 
+                   else "/var/lib/acme/${name}/privkey.pem";
+          forceSSL = vhost ? forceSSL && vhost.forceSSL;
         in ''
         echo "Generating config for ${name}..."
+        
+        ${if forceSSL then ''
+        # HTTP server for redirect to HTTPS
+        cat > /etc/nginx/sites-generated/${name}.conf << 'EOF'
+server {
+    listen 80;
+    server_name ${serverName};
+    
+    # Redirect all HTTP requests to HTTPS
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# HTTPS server
+server {
+    listen 443 ssl;
+    server_name ${serverName};
+    
+    # SSL configuration
+    ssl_certificate ${sslCert};
+    ssl_certificate_key ${sslKey};
+    
+    # Try to include SSL settings if they exist
+    include /etc/nginx/ssl/options-ssl-nginx.conf;
+EOF
+        '' else ''
         cat > /etc/nginx/sites-generated/${name}.conf << 'EOF'
 server {
     listen 80;
@@ -246,12 +287,14 @@ server {
     # Try to include SSL settings if they exist
     include /etc/nginx/ssl/options-ssl-nginx.conf;
 EOF
+        ''}
         
         # Add locations
         ${lib.concatStringsSep "\n" (lib.mapAttrsToList (locName: locConfig: let
           # Fix localhost to 127.0.0.1 in proxy URLs
           proxyPassUrl = if locConfig ? proxyPass 
-                         then builtins.replaceStrings ["http://localhost"] ["http://127.0.0.1"] locConfig.proxyPass
+                         then builtins.replaceStrings ["http://localhost"] ["http://127.0.0.1"] 
+                              (builtins.replaceStrings ["[::1]"] ["127.0.0.1"] locConfig.proxyPass)
                          else "";
           useWebsockets = locConfig ? proxyWebsockets && locConfig.proxyWebsockets;
           extraLines = if locConfig ? extraConfig then locConfig.extraConfig else "";

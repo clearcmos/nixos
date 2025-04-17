@@ -1,23 +1,17 @@
 { config, lib, pkgs, ... }:
 
 {
-  # Add NGINX virtual host for Glances with country restriction
+  # Add NGINX virtual host for Glances without country restriction
   services.nginx.virtualHosts."glances.bedrosn.com" = {
-    # Enable HTTPS with certificate
-    enableACME = false;  # Don't generate a certificate with ACME
     forceSSL = true;
-    sslCertificate = "/var/lib/acme/glances.bedrosn.com/fullchain.pem";
-    sslCertificateKey = "/var/lib/acme/glances.bedrosn.com/privkey.pem";
+    # Fix to prevent webroot injection
+    enableACME = true;
+    acmeRoot = null;
     
     locations."/" = {
-      proxyPass = "http://localhost:61208";
+      proxyPass = "http://127.0.0.1:61208";
       proxyWebsockets = true;
       extraConfig = ''
-        # Block countries not in the whitelist
-        if ($allowed_country = no) {
-          return 403;
-        }
-        
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;

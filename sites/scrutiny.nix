@@ -11,23 +11,17 @@
     collector.enable = true;
   };
 
-  # Add NGINX virtual host for Scrutiny with country restriction
+  # Add NGINX virtual host for Scrutiny without country restriction
   services.nginx.virtualHosts."scrutiny.bedrosn.com" = {
-    # Enable HTTPS with certificate
-    enableACME = false;  # Don't generate a certificate with ACME
     forceSSL = true;
-    sslCertificate = "/var/lib/acme/scrutiny.bedrosn.com/fullchain.pem";
-    sslCertificateKey = "/var/lib/acme/scrutiny.bedrosn.com/privkey.pem";
+    # Fix to prevent webroot injection
+    enableACME = true;
+    acmeRoot = null;
     
     locations."/" = {
-      proxyPass = "http://localhost:8080";
+      proxyPass = "http://127.0.0.1:8080";
       proxyWebsockets = true;
       extraConfig = ''
-        # Block countries not in the whitelist
-        if ($allowed_country = no) {
-          return 403;
-        }
-        
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
