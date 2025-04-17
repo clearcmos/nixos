@@ -3,10 +3,41 @@
 { config, lib, pkgs, modulesPath, ... }:
 
 let
+  # Load environment variables from .env file
+  loadEnv = path:
+    let
+      content = builtins.readFile path;
+      # Split into lines and filter comments/empty lines
+      lines = lib.filter (line:
+        line != "" &&
+        !(lib.hasPrefix "#" line)
+      ) (lib.splitString "\n" content);
+
+      # Split each line into key/value with improved handling for quotes and special chars
+      parseLine = line:
+        let
+          # Use a more robust regex that handles quotes and spaces around equals sign
+          match = builtins.match "([^=]+)=([\"']?)([^\"]*)([\"']?)" line;
+          key = if match == null then null else lib.elemAt match 0;
+          # Extract the value without quotes
+          value = if match == null then null else lib.elemAt match 2;
+        in if match == null
+           then null
+           else { name = lib.removeSuffix " " (lib.removePrefix " " key); value = value; };
+
+      # Convert to attribute set, filtering out null values from parsing failures
+      parsedLines = map parseLine lines;
+      validLines = builtins.filter (x: x != null) parsedLines;
+      env = builtins.listToAttrs validLines;
+    in env;
+
+  envVars = loadEnv "/etc/nixos/.env";
+
   # Get values from environment files
-  cloudflare_domain = (builtins.getEnv "CLOUDFLARE_DOMAIN");
-  system_password = (builtins.getEnv "SYSTEM_PASSWORD");
-  ssh_authorized_key = (builtins.getEnv "SSH_AUTHORIZED_KEY");
+  cloudflare_domain = envVars.CLOUDFLARE_DOMAIN;
+  system_password = envVars.SYSTEM_PASSWORD;
+  ssh_authorized_key = envVars.SSH_AUTHORIZED_KEY;
+  main_email = envVars.MAIN_EMAIL;
 in
 {
   imports =
@@ -27,7 +58,7 @@ in
   networking = {
     hostName = "misc";
     domain = "home.arpa";
-    
+
     # Network configuration
     interfaces.enp3s0f0 = {
       useDHCP = false;
@@ -63,7 +94,7 @@ in
     tmux
     tree
     unzip
-    
+
     # Required packages
     scrutiny
     glances
@@ -82,7 +113,7 @@ in
 
   # Only allow root user with password from .env
   users.mutableUsers = false;
-  
+
   # Set up users
   users.users = {
     root = {
@@ -92,14 +123,14 @@ in
       home = "/root";
       group = "root"; # Set the group as required
     };
-    
+
     # ACME needs a user for certificate operations
     acme = {
       isSystemUser = true;
       group = "acme";
       home = "/var/lib/acme";
     };
-    
+
     # Nginx needs a user
     nginx = {
       isSystemUser = true;
@@ -107,19 +138,19 @@ in
       home = "/var/lib/nginx";
     };
     
-    # Add NixOS build users
-    nixbld1 = { isSystemUser = true; group = "nixbld"; };
-    nixbld2 = { isSystemUser = true; group = "nixbld"; };
-    nixbld3 = { isSystemUser = true; group = "nixbld"; };
-    nixbld4 = { isSystemUser = true; group = "nixbld"; };
-    nixbld5 = { isSystemUser = true; group = "nixbld"; };
-    nixbld6 = { isSystemUser = true; group = "nixbld"; };
-    nixbld7 = { isSystemUser = true; group = "nixbld"; };
-    nixbld8 = { isSystemUser = true; group = "nixbld"; };
-    nixbld9 = { isSystemUser = true; group = "nixbld"; };
-    nixbld10 = { isSystemUser = true; group = "nixbld"; };
+    # Explicitly set UIDs for nixbld users with mkForce to override defaults
+    nixbld1 = { isSystemUser = true; group = "nixbld"; uid = lib.mkForce 999; };
+    nixbld2 = { isSystemUser = true; group = "nixbld"; uid = lib.mkForce 998; };
+    nixbld3 = { isSystemUser = true; group = "nixbld"; uid = lib.mkForce 997; };
+    nixbld4 = { isSystemUser = true; group = "nixbld"; uid = lib.mkForce 996; };
+    nixbld5 = { isSystemUser = true; group = "nixbld"; uid = lib.mkForce 995; };
+    nixbld6 = { isSystemUser = true; group = "nixbld"; uid = lib.mkForce 994; };
+    nixbld7 = { isSystemUser = true; group = "nixbld"; uid = lib.mkForce 993; };
+    nixbld8 = { isSystemUser = true; group = "nixbld"; uid = lib.mkForce 992; };
+    nixbld9 = { isSystemUser = true; group = "nixbld"; uid = lib.mkForce 991; };
+    nixbld10 = { isSystemUser = true; group = "nixbld"; uid = lib.mkForce 990; };
   };
-  
+
   # Define the required groups
   users.groups = {
     root = {};
@@ -127,7 +158,7 @@ in
     acme = {};
     nixbld = {};
   };
-  
+
   # NixOS build users
   nix.settings.trusted-users = [ "root" ];
   nix.settings.allowed-users = [ "@wheel" "root" ];
@@ -144,31 +175,123 @@ in
   # Nginx configuration
   services.nginx = {
     enable = true;
-    
+
     # Recommended settings
     recommendedGzipSettings = true;
     recommendedOptimisation = true;
     recommendedProxySettings = true;
     recommendedTlsSettings = true;
-    
+
+    # Additional SSL settings for better security and compatibility
+    sslCiphers = "EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH";
+    sslProtocols = "TLSv1.2 TLSv1.3";
+
     # Virtual hosts configuration
     virtualHosts = {
-      "scrutiny.${cloudflare_domain}" = {
+      "scrutiny.${lib.removeSuffix "." cloudflare_domain}" = {
         forceSSL = true;
         enableACME = true;
         locations."/" = {
           proxyPass = "http://localhost:8080";
           proxyWebsockets = true;
         };
+        # Extra config to ensure headers are properly passed
+        extraConfig = ''
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $scheme;
+        '';
       };
-      
-      "glances.${cloudflare_domain}" = {
+
+      "glances.${lib.removeSuffix "." cloudflare_domain}" = {
         forceSSL = true;
         enableACME = true;
-        locations."/" = {
-          proxyPass = "http://localhost:61208";
-          proxyWebsockets = true;
+        locations = {
+          "/" = {
+            proxyPass = "http://localhost:61208";
+            proxyWebsockets = true;
+          };
+          "/static/" = {
+            proxyPass = "http://localhost:61208/static/";
+          };
+          "/api" = {
+            proxyPass = "http://localhost:61208/api";
+            proxyWebsockets = true;
+          };
         };
+        extraConfig = ''
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $scheme;
+          proxy_read_timeout 300s;
+          proxy_send_timeout 300s;
+        '';
+      };
+      
+      "jellyfin.${lib.removeSuffix "." cloudflare_domain}" = {
+        forceSSL = true;
+        enableACME = true;
+        locations = {
+          "/" = {
+            # Using domain name approach instead of IP address
+            proxyPass = "http://jellyimmich.home.arpa:8096";
+            proxyWebsockets = true;
+          };
+        };
+        extraConfig = ''
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $scheme;
+          
+          # Jellyfin-specific settings
+          proxy_buffering off;
+          proxy_http_version 1.1;
+          proxy_set_header Upgrade $http_upgrade;
+          proxy_set_header Connection "upgrade";
+          
+          # Increased timeouts for streaming content
+          proxy_read_timeout 600s;
+          proxy_send_timeout 600s;
+          
+          # Allow large uploads
+          client_max_body_size 0;
+          
+          # Disable compression for video content
+          proxy_set_header Accept-Encoding "";
+        '';
+      };
+
+      "photos.${lib.removeSuffix "." cloudflare_domain}" = {
+        forceSSL = true;
+        enableACME = true;
+        locations = {
+          "/" = {
+            proxyPass = "http://jellyimmich.home.arpa:2283";
+            proxyWebsockets = true;
+          };
+        };
+        extraConfig = ''
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $scheme;
+          
+          # Immich-specific settings
+          proxy_buffering off;
+          proxy_http_version 1.1;
+          proxy_set_header Upgrade $http_upgrade;
+          proxy_set_header Connection "upgrade";
+          
+          # Increased timeouts for media content
+          proxy_read_timeout 600s;
+          proxy_send_timeout 600s;
+          
+          # Allow large uploads
+          client_max_body_size 0;
+        '';
       };
     };
   };
@@ -176,13 +299,13 @@ in
   # ACME (Let's Encrypt) configuration
   security.acme = {
     acceptTerms = true;
-    defaults.email = "admin@${cloudflare_domain}";
-    
+    defaults.email = main_email;
+
     # Add required user for ACME
     defaults.group = "nginx";
     defaults.webroot = "/var/lib/acme/acme-challenge";
   };
-  
+
   # Scrutiny service
   services.scrutiny = {
     enable = true;
@@ -193,7 +316,7 @@ in
       };
     };
   };
-  
+
   # Glances service
   services.glances = {
     enable = true;
@@ -212,6 +335,23 @@ in
 
   # Allow unfree packages
   nixpkgs.config.allowUnfree = true;
+  
+  # Enable nix-ld for running non-NixOS executables (needed for VS Code Remote SSH)
+  programs.nix-ld.enable = true;
+  programs.nix-ld.libraries = with pkgs; [
+    # Common libraries needed for VS Code Remote SSH and other tools
+    stdenv.cc.cc.lib
+    zlib
+    openssl
+    curl
+    expat
+    which
+    xz
+    icu
+    zstd
+    libsecret
+    # Add more libraries if needed for specific tools
+  ];
 
   # This value determines the NixOS release from which the default
   # settings for stateful data, like file locations and database versions
