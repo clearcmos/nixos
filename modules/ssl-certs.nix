@@ -126,38 +126,11 @@ EOF
 
 in {
   # ACME/certificate configuration
-  # Create a script to be run after the system is built
-  system.activationScripts.createAcmeEmailScript = ''
-    # Create a simple script to fix ACME email at runtime
-    cat > /tmp/fix-acme-email.sh << 'EOFX'
-#!/bin/bash
-# Fix ACME email from .env file
-if [ -f /etc/nixos/.env ]; then
-  email=$(grep "^MAIN_EMAIL=" /etc/nixos/.env | cut -d'=' -f2)
-  if [ -n "$email" ]; then
-    echo "Setting ACME email to value from .env..."
-    for service in /etc/systemd/system/acme-*.service; do
-      echo "Processing $service"
-      cp "$service" "$service.bak"
-      sed -i "s/--email ''/--email '$email'/g" "$service.bak"
-      cat "$service.bak" > "$service"
-      rm "$service.bak"
-    done
-    systemctl daemon-reload
-  fi
-fi
-EOFX
-    chmod +x /tmp/fix-acme-email.sh
-    
-    # Run it once now during activation
-    /tmp/fix-acme-email.sh
-  '';
-
   security.acme = {
     acceptTerms = true;
     defaults = {
-      # Read from env but use a dummy value by default (avoids script errors)
-      email = lib.mkDefault "acme@example.com";
+      # Use a fixed email to avoid errors
+      email = "admin@bedrosn.com";
       webroot = "/var/lib/acme/acme-challenge";
       group = "nginx";  # Set nginx as the group for all certificates
     };
