@@ -150,12 +150,8 @@ ${whitelistFormatted}
     # Configure the certbot service
     security.acme = {
       acceptTerms = true;
-      defaults = {
-        email = certbotEmail;
-        webroot = "/var/lib/acme/acme-challenge";
-      };
-
-      certs = {};  # Specific certificates will be defined here or in host configs
+      # Certificates are defined in ssl-certs.nix
+      certs = {};  # Specific certificates will be defined in host configs
     };
 
     # Create shared SSL parameters for nginx
