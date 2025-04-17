@@ -126,10 +126,30 @@ EOF
 
 in {
   # ACME/certificate configuration
+  # Read the email from the .env file at activation time
+  system.activationScripts.fixAcmeEmail = ''
+    # Add email address to ACME config at runtime (not in git)
+    if [ -f /etc/nixos/.env ]; then
+      email=$(grep "^MAIN_EMAIL=" /etc/nixos/.env | cut -d'=' -f2)
+      if [ -n "$email" ]; then
+        echo "Setting ACME email from .env..."
+        # Update the config directly for existing services
+        for service in $(systemctl list-units --plain --no-legend 'acme-*.service' | awk '{print $1}'); do
+          unit_path="/etc/systemd/system/$service"
+          if [ -f "$unit_path" ]; then
+            # Replace empty email with actual email
+            sed -i 's/--email \x27\x27/--email \x27'"$email"'\x27/g' "$unit_path"
+            echo "Updated email in $service"
+          fi
+        done
+      fi
+    fi
+  '';
+
   security.acme = {
     acceptTerms = true;
     defaults = {
-      email = getEnv "MAIN_EMAIL" ""; # Use MAIN_EMAIL from .env without mentioning any email
+      # Email is set via activation script to avoid exposing it in git
       webroot = "/var/lib/acme/acme-challenge";
       group = "nginx";  # Set nginx as the group for all certificates
     };
