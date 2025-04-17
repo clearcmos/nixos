@@ -45,6 +45,8 @@ in
       ./hardware-configuration.nix
       # Include nginx configuration
       ./nginx.nix
+      # Include packages configuration
+      ./packages.nix
       # Include site-specific configurations
       ./sites/scrutiny.nix
       ./sites/glances.nix
@@ -85,33 +87,10 @@ in
   # Set time zone
   time.timeZone = "America/New_York";
 
-  # System packages (moved service-specific packages to their respective files)
-  environment.systemPackages = with pkgs; [
-    # Basic utilities
-    vim
-    wget
-    curl
-    git
-    htop
-    cifs-utils
-    samba
-    smartmontools
-
-    # Additional tools
-    tmux
-    tree
-    unzip
-  ];
-
   # Console configuration
   console = {
     font = "Lat2-Terminus16";
     keyMap = "us";
-  };
-
-  # Environment variables
-  environment.variables = {
-    EDITOR = "vim";
   };
 
   # Only allow root user with password from .env
@@ -172,21 +151,7 @@ in
   
   # Enable nix-ld for running non-NixOS executables (needed for VS Code Remote SSH)
   programs.nix-ld.enable = true;
-  programs.nix-ld.libraries = with pkgs; [
-    # Common libraries needed for VS Code Remote SSH and other tools
-    stdenv.cc.cc.lib
-    zlib
-    openssl
-    curl
-    expat
-    which
-    xz
-    icu
-    zstd
-    libsecret
-    # Add more libraries if needed for specific tools
-  ];
-
+  
   # This value determines the NixOS release from which the default
   # settings for stateful data, like file locations and database versions
   # on your system were taken. It's perfectly fine and recommended to leave
