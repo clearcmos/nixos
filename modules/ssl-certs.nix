@@ -144,7 +144,7 @@ if [ -f /etc/nixos/.env ]; then
       echo "Processing $service"
       
       # Replace empty email with actual email
-      if grep -q -- "--email ''" "$service"; then
+      if grep -q -- \"--email ''\" \"$service\"; then
         echo "Updating email in $service"
         sed -i "s/--email ''/--email '$email'/g" "$service"
         
