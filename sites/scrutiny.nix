@@ -27,6 +27,8 @@ let
 
   envVars = loadEnv "/etc/nixos/.env";
   cloudflare_domain = envVars.CLOUDFLARE_DOMAIN;
+  basic_username = envVars.BASIC_USERNAME;
+  basic_password = envVars.BASIC_PASSWORD;
 in
 {
   # Ensure the required package is installed
@@ -49,6 +51,10 @@ in
   services.nginx.virtualHosts."scrutiny.${lib.removeSuffix "." cloudflare_domain}" = {
     forceSSL = true;
     enableACME = true;
+    # Add basic authentication
+    basicAuthFile = pkgs.writeText "scrutiny.htpasswd" ''
+      ${basic_username}:{PLAIN}${basic_password}
+    '';
     locations."/" = {
       proxyPass = "http://localhost:8080";
       proxyWebsockets = true;
