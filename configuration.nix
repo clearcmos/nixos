@@ -43,6 +43,13 @@ in
   imports =
     [ # Include the hardware configuration
       ./hardware-configuration.nix
+      # Include nginx configuration
+      ./nginx.nix
+      # Include site-specific configurations
+      ./sites/scrutiny.nix
+      ./sites/glances.nix
+      ./sites/jellyfin.nix
+      ./sites/photos.nix
     ];
 
   # Enable flakes and nix-command
@@ -71,14 +78,14 @@ in
 
     firewall = {
       enable = true;
-      allowedTCPPorts = [ 22 80 443 ]; # SSH, HTTP, HTTPS
+      allowedTCPPorts = [ 22 ]; # SSH port (HTTP/HTTPS moved to nginx.nix)
     };
   };
 
   # Set time zone
   time.timeZone = "America/New_York";
 
-  # System packages
+  # System packages (moved service-specific packages to their respective files)
   environment.systemPackages = with pkgs; [
     # Basic utilities
     vim
@@ -94,10 +101,6 @@ in
     tmux
     tree
     unzip
-
-    # Required packages
-    scrutiny
-    glances
   ];
 
   # Console configuration
@@ -114,7 +117,7 @@ in
   # Only allow root user with password from .env
   users.mutableUsers = false;
 
-  # Set up users
+  # Set up users (ACME and Nginx users moved to nginx.nix)
   users.users = {
     root = {
       password = system_password; # NixOS will hash this
@@ -122,20 +125,6 @@ in
       isSystemUser = true;
       home = "/root";
       group = "root"; # Set the group as required
-    };
-
-    # ACME needs a user for certificate operations
-    acme = {
-      isSystemUser = true;
-      group = "acme";
-      home = "/var/lib/acme";
-    };
-
-    # Nginx needs a user
-    nginx = {
-      isSystemUser = true;
-      group = "nginx";
-      home = "/var/lib/nginx";
     };
     
     # Explicitly set UIDs for nixbld users with mkForce to override defaults
@@ -151,11 +140,9 @@ in
     nixbld10 = { isSystemUser = true; group = "nixbld"; uid = lib.mkForce 990; };
   };
 
-  # Define the required groups
+  # Define the required groups (nginx and acme moved to nginx.nix)
   users.groups = {
     root = {};
-    nginx = {};
-    acme = {};
     nixbld = {};
   };
 
@@ -172,171 +159,11 @@ in
     };
   };
 
-  # Nginx configuration
-  services.nginx = {
-    enable = true;
-
-    # Recommended settings
-    recommendedGzipSettings = true;
-    recommendedOptimisation = true;
-    recommendedProxySettings = true;
-    recommendedTlsSettings = true;
-
-    # Additional SSL settings for better security and compatibility
-    sslCiphers = "EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH";
-    sslProtocols = "TLSv1.2 TLSv1.3";
-
-    # Virtual hosts configuration
-    virtualHosts = {
-      "scrutiny.${lib.removeSuffix "." cloudflare_domain}" = {
-        forceSSL = true;
-        enableACME = true;
-        locations."/" = {
-          proxyPass = "http://localhost:8080";
-          proxyWebsockets = true;
-        };
-        # Extra config to ensure headers are properly passed
-        extraConfig = ''
-          proxy_set_header Host $host;
-          proxy_set_header X-Real-IP $remote_addr;
-          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-          proxy_set_header X-Forwarded-Proto $scheme;
-        '';
-      };
-
-      "glances.${lib.removeSuffix "." cloudflare_domain}" = {
-        forceSSL = true;
-        enableACME = true;
-        locations = {
-          "/" = {
-            proxyPass = "http://localhost:61208";
-            proxyWebsockets = true;
-          };
-          "/static/" = {
-            proxyPass = "http://localhost:61208/static/";
-          };
-          "/api" = {
-            proxyPass = "http://localhost:61208/api";
-            proxyWebsockets = true;
-          };
-        };
-        extraConfig = ''
-          proxy_set_header Host $host;
-          proxy_set_header X-Real-IP $remote_addr;
-          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-          proxy_set_header X-Forwarded-Proto $scheme;
-          proxy_read_timeout 300s;
-          proxy_send_timeout 300s;
-        '';
-      };
-      
-      "jellyfin.${lib.removeSuffix "." cloudflare_domain}" = {
-        forceSSL = true;
-        enableACME = true;
-        locations = {
-          "/" = {
-            # Using domain name approach instead of IP address
-            proxyPass = "http://jellyimmich.home.arpa:8096";
-            proxyWebsockets = true;
-          };
-        };
-        extraConfig = ''
-          proxy_set_header Host $host;
-          proxy_set_header X-Real-IP $remote_addr;
-          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-          proxy_set_header X-Forwarded-Proto $scheme;
-          
-          # Jellyfin-specific settings
-          proxy_buffering off;
-          proxy_http_version 1.1;
-          proxy_set_header Upgrade $http_upgrade;
-          proxy_set_header Connection "upgrade";
-          
-          # Increased timeouts for streaming content
-          proxy_read_timeout 600s;
-          proxy_send_timeout 600s;
-          
-          # Allow large uploads
-          client_max_body_size 0;
-          
-          # Disable compression for video content
-          proxy_set_header Accept-Encoding "";
-        '';
-      };
-
-      "photos.${lib.removeSuffix "." cloudflare_domain}" = {
-        forceSSL = true;
-        enableACME = true;
-        locations = {
-          "/" = {
-            proxyPass = "http://jellyimmich.home.arpa:2283";
-            proxyWebsockets = true;
-          };
-        };
-        extraConfig = ''
-          proxy_set_header Host $host;
-          proxy_set_header X-Real-IP $remote_addr;
-          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-          proxy_set_header X-Forwarded-Proto $scheme;
-          
-          # Immich-specific settings
-          proxy_buffering off;
-          proxy_http_version 1.1;
-          proxy_set_header Upgrade $http_upgrade;
-          proxy_set_header Connection "upgrade";
-          
-          # Increased timeouts for media content
-          proxy_read_timeout 600s;
-          proxy_send_timeout 600s;
-          
-          # Allow large uploads
-          client_max_body_size 0;
-        '';
-      };
-    };
-  };
-
-  # ACME (Let's Encrypt) configuration
-  security.acme = {
-    acceptTerms = true;
-    defaults.email = main_email;
-
-    # Add required user for ACME
-    defaults.group = "nginx";
-    defaults.webroot = "/var/lib/acme/acme-challenge";
-  };
-
-  # Scrutiny service
-  services.scrutiny = {
-    enable = true;
-    settings = {
-      web.listen = {
-        port = 8080;
-        host = "127.0.0.1"; # Only listen on localhost, nginx handles external access
-      };
-    };
-  };
-
-  # Glances service
-  services.glances = {
-    enable = true;
-    port = 61208;
-    extraArgs = [
-      "--webserver"
-      "--bind=127.0.0.1"
-    ];
-  };
-
-  # System activation scripts
+  # System activation scripts (ACME debug moved to nginx.nix)
   system.activationScripts = {
     protectEnvFile = ''
       # Protect env file with restricted permissions
       chmod 600 /etc/nixos/.env
-    '';
-    
-    # Add a debug script to check which email is being used
-    debugAcmeEmail = ''
-      echo "DEBUG: ACME email being used: ${main_email}" > /tmp/acme-email-debug
     '';
   };
 
