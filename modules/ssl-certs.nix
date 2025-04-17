@@ -126,30 +126,56 @@ EOF
 
 in {
   # ACME/certificate configuration
-  # Read the email from the .env file at activation time
-  system.activationScripts.fixAcmeEmail = ''
-    # Add email address to ACME config at runtime (not in git)
-    if [ -f /etc/nixos/.env ]; then
-      email=$(grep "^MAIN_EMAIL=" /etc/nixos/.env | cut -d'=' -f2)
-      if [ -n "$email" ]; then
-        echo "Setting ACME email from .env..."
-        # Update the config directly for existing services
-        for service in $(systemctl list-units --plain --no-legend 'acme-*.service' | awk '{print $1}'); do
-          unit_path="/etc/systemd/system/$service"
-          if [ -f "$unit_path" ]; then
-            # Replace empty email with actual email
-            sed -i 's/--email \x27\x27/--email \x27'"$email"'\x27/g' "$unit_path"
-            echo "Updated email in $service"
-          fi
-        done
+  # Create a script to be run after the system is built
+  # This avoids exposing the email in the Nix store
+  system.activationScripts.createAcmeEmailScript = ''
+    cat > /tmp/fix-acme-email.sh << 'EOF'
+#!/bin/bash
+# Script to fix ACME email addresses without exposing them in the Nix configuration
+
+# Get the email from .env
+if [ -f /etc/nixos/.env ]; then
+  email=$(grep "^MAIN_EMAIL=" /etc/nixos/.env | cut -d'=' -f2)
+  if [ -n "$email" ]; then
+    echo "Setting ACME email to value from .env..."
+    
+    # Find acme service files
+    for service in $(ls /etc/systemd/system/acme-*.service 2>/dev/null); do
+      echo "Processing $service"
+      
+      # Replace empty email with actual email
+      if grep -q -- "--email ''" "$service"; then
+        echo "Updating email in $service"
+        sed -i "s/--email ''/--email '$email'/g" "$service"
+        
+        # Reload the service
+        systemctl daemon-reload
+        
+        # Attempt to restart the service
+        service_name=$(basename "$service")
+        systemctl try-restart "$service_name"
       fi
-    fi
+    done
+  else
+    echo "No email found in .env file"
+  fi
+else
+  echo "No .env file found"
+fi
+EOF
+    chmod +x /tmp/fix-acme-email.sh
+    
+    # Schedule this to run after the system is fully built
+    echo "#!/bin/bash" > /etc/cron.d/fix-acme-email
+    echo "@reboot root /tmp/fix-acme-email.sh" >> /etc/cron.d/fix-acme-email
+    chmod 644 /etc/cron.d/fix-acme-email
   '';
 
   security.acme = {
     acceptTerms = true;
     defaults = {
-      # Email is set via activation script to avoid exposing it in git
+      # Read from env but use a dummy value by default (avoids script errors)
+      email = lib.mkDefault "acme@example.com";
       webroot = "/var/lib/acme/acme-challenge";
       group = "nginx";  # Set nginx as the group for all certificates
     };
