@@ -30,7 +30,7 @@ let
       env = builtins.listToAttrs validLines;
     in env;
 
-  envVars = loadEnv "/etc/nixos/.env";
+  envVars = loadEnv "/etc/nixos/.secrets/.env";
   main_email = envVars.MAIN_EMAIL;
 in
 {

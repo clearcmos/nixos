@@ -31,7 +31,7 @@ let
       env = builtins.listToAttrs validLines;
     in env;
 
-  envVars = loadEnv "/etc/nixos/.env";
+  envVars = loadEnv "/etc/nixos/.secrets/.env";
 
   # Get values from environment files
   cloudflare_domain = envVars.CLOUDFLARE_DOMAIN;
@@ -147,7 +147,7 @@ in
   system.activationScripts = {
     protectEnvFile = ''
       # Protect env file with restricted permissions
-      chmod 600 /etc/nixos/.env
+      chmod 600 /etc/nixos/.secrets/.env
     '';
     
     # Set the Samba password for root user using the password from .env
@@ -156,7 +156,7 @@ in
       if [ -d /var/lib/samba ]; then
         echo "Setting up Samba password for root user..."
         # Extract password from .env file
-        ROOT_PASSWORD=$(grep "SYSTEM_PASSWORD" /etc/nixos/.env | cut -d= -f2)
+        ROOT_PASSWORD=$(grep "SYSTEM_PASSWORD" /etc/nixos/.secrets/.env | cut -d= -f2)
         
         # Use full path to smbpasswd to ensure it's found
         SMBPASSWD="${pkgs.samba}/bin/smbpasswd"

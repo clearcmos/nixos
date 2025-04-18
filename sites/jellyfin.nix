@@ -25,7 +25,7 @@ let
       env = builtins.listToAttrs validLines;
     in env;
 
-  envVars = loadEnv "/etc/nixos/.env";
+  envVars = loadEnv "/etc/nixos/.secrets/.env";
   cloudflare_domain = envVars.CLOUDFLARE_DOMAIN;
 in
 {

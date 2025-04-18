@@ -27,7 +27,7 @@ let
     in env;
 
   # Load environment variables from .env file
-  envVars = loadEnv "/etc/nixos/.env";
+  envVars = loadEnv "/etc/nixos/.secrets/.env";
 
   # Extract CIFS configuration values from environment variables
   system_username = "root"; # Changed from envVars.SYSTEM_USERNAME to use root instead

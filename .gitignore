@@ -1,5 +1,6 @@
 # Ignore these files anywhere in the repository
 **/.claude.json
 **/.env
+**/.secrets/
 **/CLAUDE.md
 **/result
