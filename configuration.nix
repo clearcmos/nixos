@@ -49,6 +49,8 @@ in
       ./packages.nix
       # Include CIFS mounts configuration
       ./cifs-mounts.nix
+      # Include custom functions
+      ./functions.nix
       # Include site-specific configurations
       ./sites/scrutiny.nix
       ./sites/glances.nix
