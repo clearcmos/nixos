@@ -51,6 +51,10 @@ in
       ./cifs-mounts.nix
       # Include custom functions
       ./functions.nix
+      # Include shell aliases
+      ./aliases.nix
+      # Include Claude CLI configuration
+      ./claude.nix
       # Include site-specific configurations
       ./sites/scrutiny.nix
       ./sites/glances.nix
