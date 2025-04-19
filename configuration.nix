@@ -60,7 +60,6 @@ in
       ./sites/glances.nix
       ./sites/jellyfin.nix
       ./sites/photos.nix
-      ./sites/authentik.nix
     ];
 
   # Enable flakes and nix-command
