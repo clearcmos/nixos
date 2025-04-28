@@ -9,12 +9,14 @@
     [ # Include the results of the hardware scan.
       ./1password.nix
       ./aliases.nix
+      ./cifs-mounts.nix
       ./claude.nix
       ./brave.nix
       ./functions.nix
       ./git.nix
       ./hardware-configuration.nix
       ./ssh.nix
+      ./windows.nix
     ];
 
   # Bootloader.
