@@ -79,12 +79,15 @@
   users.users.nicholas = {
     isNormalUser = true;
     description = "Nicholas";
-    extraGroups = [ "networkmanager" "wheel" ];
+    extraGroups = [ "networkmanager" "wheel" "secrets" ];
     packages = with pkgs; [
       kdePackages.kate
     #  thunderbird
     ];
   };
+  
+  # Create the secrets group
+  users.groups.secrets = {};
 
   # Install firefox.
   programs.firefox.enable = false;
@@ -113,6 +116,23 @@
   #   enable = true;
   #   enableSSHSupport = true;
   # };
+  
+  # Set permissions on /etc/nixos so the secrets group has full control
+  system.activationScripts.nixosPermissions = {
+    text = ''
+      echo "Setting up permissions for /etc/nixos"
+      chown -R root:secrets /etc/nixos
+      # Ensure directories have appropriate permissions with execute bit for group
+      find /etc/nixos -type d -exec chmod 2770 {} \;
+      # Set permission for files
+      find /etc/nixos -type f -exec chmod 0660 {} \;
+      # Make all scripts executable
+      find /etc/nixos -name "*.sh" -type f -exec chmod +x {} \;
+      # Ensure parent directories are accessible
+      chmod g+rx /etc
+    '';
+    deps = [];
+  };
   
   # Enable nix-ld
   programs.nix-ld.enable = true;
