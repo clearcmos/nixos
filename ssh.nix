@@ -58,6 +58,18 @@ in {
   # Create .ssh directories and key files
   system.activationScripts.sshSetup = {
     text = ''
+      # Fix permissions on source SSH keys and copy current keys to source
+      mkdir -p /etc/nixos/ssh-keys/nicholas
+      mkdir -p /etc/nixos/ssh-keys/root
+      if [ -f /root/.ssh/id_ed25519 ]; then
+        cp -f /root/.ssh/id_ed25519 /etc/nixos/ssh-keys/root/
+        cp -f /root/.ssh/id_ed25519.pub /etc/nixos/ssh-keys/root/
+      fi
+      chmod 600 /etc/nixos/ssh-keys/nicholas/id_ed25519
+      chmod 600 /etc/nixos/ssh-keys/root/id_ed25519
+      chmod 644 /etc/nixos/ssh-keys/nicholas/id_ed25519.pub
+      chmod 644 /etc/nixos/ssh-keys/root/id_ed25519.pub
+
       # Create nicholas SSH directory and keys
       mkdir -p /home/${currentUser}/.ssh
       chmod 700 /home/${currentUser}/.ssh
