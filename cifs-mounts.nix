@@ -29,7 +29,9 @@ let
   envVars = loadEnv ./.env;
 
   # Extract CIFS configuration values from environment variables
-  system_username = "root"; # Using root for mounting
+  system_username = "nicholas"; # Using nicholas for mounting
+  system_uid = "1000"; # UID for nicholas user
+  system_gid = "100"; # GID for users group
   
   # Host information
   cifsHost1 = envVars.CIFS_HOST_1 or "";
@@ -100,8 +102,10 @@ EOF
       mkdir -p /mnt/${cifsHost1Share2}
       
       # Set appropriate permissions
-      chown ${system_username} /mnt/${cifsHost1Share1}
-      chown ${system_username} /mnt/${cifsHost1Share2}
+      chown ${system_username}:users /mnt/${cifsHost1Share1}
+      chown ${system_username}:users /mnt/${cifsHost1Share2}
+      chmod 0770 /mnt/${cifsHost1Share1}
+      chmod 0770 /mnt/${cifsHost1Share2}
     '';
 
     # Create a systemd service for mounting CIFS shares
@@ -178,7 +182,7 @@ EOF
           modprobe cifs
           
           # Mount options with credentials files
-          HOST1_OPTS="credentials=/etc/.host1-cifs,uid=${system_username},gid=users,vers=3.0,file_mode=0755,dir_mode=0755,soft,nounix,serverino,mapposix"
+          HOST1_OPTS="credentials=/etc/.host1-cifs,uid=${system_uid},gid=${system_gid},vers=3.0,file_mode=0770,dir_mode=0770,soft,nounix,serverino,mapposix"
           
           # Mount shares for host 1 if it's reachable
           if check_host "$HOST1"; then
