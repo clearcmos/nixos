@@ -2,7 +2,7 @@
 # your system.  Help is available in the configuration.nix(5) man page
 # and in the NixOS manual (accessible by running ‘nixos-help’).
 
-{ config, pkgs, ... }:
+{ config, pkgs, lib, env, ... }:
 
 {
   imports =
@@ -12,9 +12,12 @@
       ./cifs-mounts.nix
       ./claude.nix
       ./brave.nix
+      ./env.nix
+      ./fonts.nix
       ./functions.nix
       ./git.nix
       ./hardware-configuration.nix
+      ./ollama.nix
       ./ssh.nix
       ./windows.nix
     ];
@@ -23,7 +26,10 @@
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
-  networking.hostName = "nixos"; # Define your hostname.
+  # Define hostname and domain from .env file
+  networking.hostName = env.HOST_NAME;
+  networking.domain = env.LAN_DOMAIN;
+  
   # networking.wireless.enable = true;  # Enables wireless support via wpa_supplicant.
 
   # Configure network proxy if necessary
@@ -32,6 +38,20 @@
 
   # Enable networking
   networking.networkmanager.enable = true;
+  
+  # Static IP configuration from .env file
+  networking.interfaces.enp8s0 = {
+    ipv4.addresses = [
+      {
+        address = env.HOST_IP;
+        prefixLength = 24; # For 255.255.255.0
+      }
+    ];
+  };
+  
+  # DNS and gateway settings from .env file
+  networking.nameservers = [ env.HOST_DNS ];
+  networking.defaultGateway = env.HOST_ROUTER;
 
   # Set your time zone.
   time.timeZone = "America/Toronto";

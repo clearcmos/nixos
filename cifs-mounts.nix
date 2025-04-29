@@ -1,48 +1,22 @@
 # CIFS Mounts module for NixOS
-{ config, lib, pkgs, ... }:
+{ config, lib, pkgs, env, ... }:
 
 let
-  # Helper function to load environment variables from .env file
-  loadEnv = path:
-    let
-      content = builtins.readFile path;
-      lines = lib.filter (line:
-        line != "" &&
-        !(lib.hasPrefix "#" line)
-      ) (lib.splitString "\n" content);
-
-      parseLine = line:
-        let
-          match = builtins.match "([^=]+)=([\"']?)([^\"]*)([\"']?)" line;
-          key = if match == null then null else lib.elemAt match 0;
-          value = if match == null then null else lib.elemAt match 2;
-        in if match == null
-           then null
-           else { name = lib.removeSuffix " " (lib.removePrefix " " key); value = value; };
-
-      parsedLines = map parseLine lines;
-      validLines = builtins.filter (x: x != null) parsedLines;
-      env = builtins.listToAttrs validLines;
-    in env;
-
-  # Load environment variables from .env file
-  envVars = loadEnv ./.env;
-
   # Extract CIFS configuration values from environment variables
   system_username = "nicholas"; # Using nicholas for mounting
   system_uid = "1000"; # UID for nicholas user
   system_gid = "100"; # GID for users group
   
   # Host information
-  cifsHost1 = envVars.CIFS_HOST_1 or "";
+  cifsHost1 = env.CIFS_HOST_1;
   
   # Share names
-  cifsHost1Share1 = envVars.CIFS_HOST_1_SHARE_1 or "";
-  cifsHost1Share2 = envVars.CIFS_HOST_1_SHARE_2 or "";
+  cifsHost1Share1 = env.CIFS_HOST_1_SHARE_1;
+  cifsHost1Share2 = env.CIFS_HOST_1_SHARE_2;
   
   # Authentication credentials
-  cifsHost1User = envVars.CIFS_HOST_1_USER or "";
-  cifsHost1Pass = envVars.CIFS_HOST_1_PASS or "";
+  cifsHost1User = env.CIFS_HOST_1_USER;
+  cifsHost1Pass = env.CIFS_HOST_1_PASS;
 
 in {
   # Define module options

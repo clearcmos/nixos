@@ -37,9 +37,11 @@
       
       # Default search engine
       DefaultSearchProviderEnabled = true;
-      DefaultSearchProviderName = "Brave Search";
-      DefaultSearchProviderSearchURL = "https://search.brave.com/search?q={searchTerms}";
-      DefaultSearchProviderSuggestURL = "https://search.brave.com/api/suggest?q={searchTerms}";
+      DefaultSearchProviderName = "Google";
+      DefaultSearchProviderSearchURL = "https://www.google.com/search?q={searchTerms}";
+      DefaultSearchProviderSuggestURL = "https://www.google.com/complete/search?output=chrome&q={searchTerms}";
+      DefaultSearchProviderIconURL = "https://www.google.com/favicon.ico";
+      DefaultSearchProviderKeyword = "google";
       
       # Brave-specific settings
       BraveRewardsDisabled = true;
