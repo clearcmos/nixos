@@ -83,7 +83,22 @@
               echo "Deleting generations: ''${selected[*]}"
               sudo nix-env --profile "$profile" --delete-generations "''${selected[@]}"
           fi
+          echo "Updating bootloader entries..."
+          sudo nixos-rebuild boot
           echo "Done."
+      }
+    '';
+
+    searchpkg = ''
+      nixpkg-search() {
+        echo "Enter package name to search for:"
+        read pkg
+        
+        # Run the search command and capture the output
+        output=$(nix search nixpkgs "$pkg" --extra-experimental-features 'nix-command flakes')
+        
+        # Process the output to extract package names
+        echo "$output" | grep -o "legacyPackages.x86_64-linux.[^ ]*" | sed 's/legacyPackages.x86_64-linux\\./pkgs./' | sort
       }
     '';
 

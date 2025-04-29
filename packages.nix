@@ -23,5 +23,6 @@
       ];
     })
     wget
+    pkgs.kdePackages.kalk
   ];
 }

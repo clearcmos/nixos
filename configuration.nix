@@ -9,16 +9,20 @@
     [ # Include the results of the hardware scan.
       ./1password.nix
       ./aliases.nix
+      ./amd-gpu.nix  # AMD GPU optimizations (set enableOptimizations = false to disable)
       ./cifs-mounts.nix
       ./claude.nix
       ./brave.nix
+      ./disabled-services.nix
       ./env.nix
       ./kde/fonts.nix
       ./functions.nix
       ./git.nix
       ./hardware-configuration.nix
+      ./kernel-tweaks.nix
       ./ollama.nix
       ./packages.nix
+      ./sunshine.nix
       ./ssh.nix
       ./windows.nix
     ];
@@ -65,8 +69,10 @@
   services.xserver.enable = true;
 
   # Enable the KDE Plasma Desktop Environment.
-  services.displayManager.sddm.enable = true;
   services.desktopManager.plasma6.enable = true;
+  
+  # Enable SDDM display manager with default settings
+  services.displayManager.sddm.enable = true;
 
   # Configure keymap in X11
   services.xserver.xkb = {
@@ -158,15 +164,27 @@
   # Enable nix-ld
   programs.nix-ld.enable = true;
 
+  # Configure nano with autoindent
+  programs.nano = {
+    enable = true;
+    nanorc = ''
+      set autoindent
+    '';
+  };
+
   # List services that you want to enable:
 
   # OpenSSH configuration moved to ssh.nix
 
-  # Open ports in the firewall.
-  # networking.firewall.allowedTCPPorts = [ ... ];
-  # networking.firewall.allowedUDPPorts = [ ... ];
-  # Or disable the firewall altogether.
-  # networking.firewall.enable = false;
+  # Completely disable the firewall with no rules
+  networking.firewall = {
+    enable = false;
+    allowedTCPPorts = [];
+    allowedUDPPorts = [];
+    extraCommands = "";
+    extraStopCommands = "";
+    logRefusedConnections = false;
+  };
 
   # This value determines the NixOS release from which the default
   # settings for stateful data, like file locations and database versions
