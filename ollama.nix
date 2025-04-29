@@ -5,50 +5,13 @@
   ...
 }:
 
-let
-  user = "nicholas";
-  home = "/home/${user}";
-in {
+{
   # Install Ollama package with ROCm support and AMD GPU utilities
   environment.systemPackages = with pkgs; [
     ollama-rocm
     pciutils
     rocmPackages.rocm-smi
-    aider-chat  # AI pair programming in your terminal
   ];
-  
-  # Configure environment variables for aider and Ollama
-  environment.sessionVariables = {
-    # Point aider at your local Ollama server
-    OLLAMA_API_BASE = "http://127.0.0.1:11434";
-    # Default model for the main chat
-    AIDER_MODEL = "ollama_chat/qwen2.5-coder:32b";
-    # Suppress missing API key warnings for other providers
-    AIDER_SHOW_MODEL_WARNINGS = "false";
-  };
-  
-  # Create aider configuration files
-  system.activationScripts.aiderConfig = {
-    deps = [ "users" ];
-    text = ''
-      mkdir -p ${home}/.config/aider
-      
-      # Tell aider which model to use by default
-      cat > ${home}/.config/aider/aider.conf.yml << 'EOF'
-model: ollama_chat/qwen2.5-coder:32b
-EOF
-      
-      # Supply context window metadata
-      cat > ${home}/.config/aider/model.settings.yml << 'EOF'
-- name: ollama_chat/qwen2.5-coder:32b
-  extra_params:
-    num_ctx: 65536
-EOF
-      
-      # Fix ownership
-      chown -R ${user} ${home}/.config/aider
-    '';
-  };
 
   # Enable AMD GPU compute support
   hardware.graphics.enable = true;
@@ -96,7 +59,7 @@ EOF
     openFirewall = true;  # For network access
     environment = {
       OLLAMA_API_BASE_URL = "http://127.0.0.1:11434";
-      DEFAULT_MODEL = "deepseek-coder-v2:16b";
+      DEFAULT_MODEL = "qwen2.5-coder:32b";
     };
   };
 }
