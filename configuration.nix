@@ -13,11 +13,12 @@
       ./claude.nix
       ./brave.nix
       ./env.nix
-      ./fonts.nix
+      ./kde/fonts.nix
       ./functions.nix
       ./git.nix
       ./hardware-configuration.nix
       ./ollama.nix
+      ./packages.nix
       ./ssh.nix
       ./windows.nix
     ];

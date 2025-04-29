@@ -11,7 +11,33 @@
     ollama-rocm
     pciutils
     rocmPackages.rocm-smi
+    aider-chat  # AI pair programming in your terminal
   ];
+  
+  # Configure aider to use qwen model by default (system-wide)
+  environment.variables = {
+    OLLAMA_API_BASE = "http://127.0.0.1:11434";
+    AIDER_MODEL = "ollama_chat/qwen2.5-coder:32b";
+  };
+  
+  # Create aider configuration directory and settings for nicholas user
+  system.activationScripts.aiderConfig = {
+    text = ''
+      # Create config directory
+      mkdir -p /home/nicholas/.config/aider
+      
+      # Create model settings file
+      cat > /home/nicholas/.config/aider/model.settings.yml << 'EOF'
+- name: ollama_chat/qwen2.5-coder:32b
+  extra_params:
+    num_ctx: 65536
+EOF
+      
+      # Set proper ownership
+      chown -R nicholas /home/nicholas/.config/aider
+    '';
+    deps = [];
+  };
 
   # Enable AMD GPU compute support
   hardware.graphics.enable = true;
