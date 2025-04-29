@@ -1,3 +1,5 @@
 fonts/
 ssh-keys/
 .env
+.aider.chat.history.md
+.aider.input.history

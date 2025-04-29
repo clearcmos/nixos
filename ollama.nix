@@ -5,7 +5,10 @@
   ...
 }:
 
-{
+let
+  user = "nicholas";
+  home = "/home/${user}";
+in {
   # Install Ollama package with ROCm support and AMD GPU utilities
   environment.systemPackages = with pkgs; [
     ollama-rocm
@@ -14,29 +17,37 @@
     aider-chat  # AI pair programming in your terminal
   ];
   
-  # Configure aider to use qwen model by default (system-wide)
-  environment.variables = {
+  # Configure environment variables for aider and Ollama
+  environment.sessionVariables = {
+    # Point aider at your local Ollama server
     OLLAMA_API_BASE = "http://127.0.0.1:11434";
+    # Default model for the main chat
     AIDER_MODEL = "ollama_chat/qwen2.5-coder:32b";
+    # Suppress missing API key warnings for other providers
+    AIDER_SHOW_MODEL_WARNINGS = "false";
   };
   
-  # Create aider configuration directory and settings for nicholas user
+  # Create aider configuration files
   system.activationScripts.aiderConfig = {
+    deps = [ "users" ];
     text = ''
-      # Create config directory
-      mkdir -p /home/nicholas/.config/aider
+      mkdir -p ${home}/.config/aider
       
-      # Create model settings file
-      cat > /home/nicholas/.config/aider/model.settings.yml << 'EOF'
+      # Tell aider which model to use by default
+      cat > ${home}/.config/aider/aider.conf.yml << 'EOF'
+model: ollama_chat/qwen2.5-coder:32b
+EOF
+      
+      # Supply context window metadata
+      cat > ${home}/.config/aider/model.settings.yml << 'EOF'
 - name: ollama_chat/qwen2.5-coder:32b
   extra_params:
     num_ctx: 65536
 EOF
       
-      # Set proper ownership
-      chown -R nicholas /home/nicholas/.config/aider
+      # Fix ownership
+      chown -R ${user} ${home}/.config/aider
     '';
-    deps = [];
   };
 
   # Enable AMD GPU compute support
@@ -58,7 +69,7 @@ EOF
       Group = "ollama";
       # Add GPU device access
       SupplementaryGroups = [ "video" "render" ];
-      Environment = "HSA_OVERRIDE_GFX_VERSION=10.3.0";
+      Environment = "HSA_OVERRIDE_GFX_VERSION=10.3.0 OLLAMA_CONTEXT_LENGTH=8192";
     };
   };
 
