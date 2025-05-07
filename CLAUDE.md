@@ -9,8 +9,7 @@
 3. DO NOT reference files under the docs directory unless specifically asked about the topic vaguely matching filename.
 
 4. Always run the following commands when NixOS configurations are updated:
-   - `nixos-rebuild test` for testing changes without permanent application
-   - `nixos-rebuild switch` for applying changes permanently
+   - `nixos-rebuild switch` for applying changes permanently, don't test unless I ask you.
 
 5. For configuration issues, always check service status, logs, and relevant configuration files.
 

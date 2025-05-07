@@ -15,16 +15,15 @@
       ./brave.nix
       ./disabled-services.nix
       ./env.nix
-      ./kde/fonts.nix
+#      ./kde/fonts.nix
       ./functions.nix
       ./git.nix
       ./hardware-configuration.nix
       ./kernel-tweaks.nix
       ./ollama.nix
       ./packages.nix
-      ./sunshine.nix
+#      ./sunshine.nix
       ./ssh.nix
-      ./windows.nix
     ];
 
   # Bootloader.
