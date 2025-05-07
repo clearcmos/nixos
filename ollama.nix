@@ -32,7 +32,7 @@
       Group = "ollama";
       # Add GPU device access
       SupplementaryGroups = [ "video" "render" ];
-      Environment = "HSA_OVERRIDE_GFX_VERSION=10.3.0 OLLAMA_CONTEXT_LENGTH=8192";
+      Environment = "HSA_OVERRIDE_GFX_VERSION=10.3.0 OLLAMA_CONTEXT_LENGTH=8192 OLLAMA_HOST=0.0.0.0:11434";
     };
   };
 
@@ -74,7 +74,7 @@
     };
     
     environment = {
-      OLLAMA_API_BASE_URL = "http://127.0.0.1:11434";
+      OLLAMA_API_BASE_URL = "http://localhost:11434";
       DEFAULT_MODEL = "qwen2.5-coder:32b";
       EMBEDDING = "disabled";
       DISABLE_EMBEDDINGS = "true";
@@ -90,7 +90,7 @@
     };
   };
   
-  # Open firewall port
-  networking.firewall.allowedTCPPorts = [ 8080 ];
+  # Open firewall ports
+  networking.firewall.allowedTCPPorts = [ 8080 11434 ];
   
 }
