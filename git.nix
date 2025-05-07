@@ -16,6 +16,15 @@
         email = "whatever@domain.com";
         name = "clearcmos";
       };
+      url = {
+        "https://github.com/clearcmos/nixos" = {
+          insteadOf = "https://github.com/clearcmos/nixos";
+          pushInsteadOf = "https://github.com/clearcmos/nixos";
+        };
+        "git@github.com:clearcmos/nixos.git" = {
+          pushInsteadOf = "https://github.com/clearcmos/nixos";
+        };
+      };
     };
   };
 
