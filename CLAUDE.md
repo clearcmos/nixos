@@ -38,3 +38,60 @@ When troubleshooting NixOS services:
    ```bash
    nixos-rebuild switch
    ```
+
+## Windows VM with GPU Passthrough Setup
+
+### Key Configuration Steps (2025-05-08)
+
+1. **Basic VM setup**:
+   - Configuration file: `/etc/nixos/windows.nix`
+   - Uses raw block device `/dev/nvme1n1` with VirtIO drivers
+   - Static MAC address: `52:54:00:11:22:33`
+   - Reserved IP address: `192.168.1.12`
+
+2. **Intel iGPU passthrough configuration**:
+   - Enable IOMMU and VFIO in kernel:
+     ```nix
+     boot.kernelParams = [ 
+       "intel_iommu=on" 
+       "iommu=pt" 
+       "vfio-pci.ids=8086:a780" 
+       "pcie_acs_override=downstream,multifunction"
+     ];
+     
+     boot.kernelPackages = pkgs.linuxPackages_zen;
+     boot.blacklistedKernelModules = [ "i915" ];
+     ```
+
+3. **Early iGPU binding to VFIO**:
+   ```nix
+   boot.initrd.preDeviceCommands = ''
+     DEVS="0000:00:02.0"  # Intel iGPU
+     for DEV in $DEVS; do
+       echo "vfio-pci" > /sys/bus/pci/devices/$DEV/driver_override
+     done
+     modprobe -i vfio-pci
+   '';
+   ```
+
+4. **Troubleshooting steps**:
+   - Verify IOMMU is enabled in BIOS/UEFI
+   - Check iGPU is in an IOMMU group after reboot:
+     ```bash
+     find /sys/kernel/iommu_groups/ -type l | grep "0000:00:02.0"
+     ```
+   - Verify vfio-pci binding:
+     ```bash
+     lspci -v | grep -i vga
+     ls -la /sys/bus/pci/devices/0000:00:02.0/driver
+     ```
+   - Check VM status with virt-manager or:
+     ```bash
+     virsh list --all
+     systemctl status windows11-guest
+     ```
+
+5. **Required before GPU passthrough works**:
+   - Reboot after applying changes
+   - Enable VT-d/IOMMU in BIOS
+   - Ensure no host software is using the iGPU
