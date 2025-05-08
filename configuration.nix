@@ -25,6 +25,7 @@
       ./packages.nix
 #      ./sunshine.nix
       ./ssh.nix
+      ./windows.nix
     ];
 
   # Bootloader.
